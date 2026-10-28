@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B5A31324-7351-4B2B-82A7-A58E865EF583}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SCSSdkClient", "src\SCSSdkClient\SCSSdkClient.csproj", "{E73EF822-461A-466C-B461-5FCACE267117}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtsTracker", "src\EtsTracker\EtsTracker.csproj", "{D275D420-D788-4BC5-80F9-3562D4FF6CCC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E73EF822-461A-466C-B461-5FCACE267117}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E73EF822-461A-466C-B461-5FCACE267117}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E73EF822-461A-466C-B461-5FCACE267117}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E73EF822-461A-466C-B461-5FCACE267117}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D275D420-D788-4BC5-80F9-3562D4FF6CCC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D275D420-D788-4BC5-80F9-3562D4FF6CCC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D275D420-D788-4BC5-80F9-3562D4FF6CCC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D275D420-D788-4BC5-80F9-3562D4FF6CCC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E73EF822-461A-466C-B461-5FCACE267117} = {B5A31324-7351-4B2B-82A7-A58E865EF583}
+		{D275D420-D788-4BC5-80F9-3562D4FF6CCC} = {B5A31324-7351-4B2B-82A7-A58E865EF583}
+	EndGlobalSection
+EndGlobal

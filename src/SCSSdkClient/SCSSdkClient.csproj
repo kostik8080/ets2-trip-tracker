@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Клиент телеметрии из проекта RenCloud/scs-sdk-plugin (MIT), перенесён на .NET 8 -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <NoWarn>$(NoWarn);CS1591;CS0618;CA1416</NoWarn>
+  </PropertyGroup>
+</Project>
