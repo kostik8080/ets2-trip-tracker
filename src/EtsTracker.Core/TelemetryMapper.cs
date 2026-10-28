@@ -45,6 +45,11 @@ public static class TelemetryMapper
             DestinationCompany = job.CompanyDestination ?? "",
             PlannedIncome = job.Income,
             PlannedDistanceKm = job.PlannedDistanceKm,
+            CargoLoaded = job.CargoLoaded,
+            HasDeadline = job.DeliveryTime.Value > 0,
+            DeadlineMinutesLeft = job.RemainingDeliveryTime.Value,
+            NavDistanceKm = t.NavigationValues.NavigationDistance / 1000f,
+            NavTimeSec = t.NavigationValues.NavigationTime,
 
             TruckName = $"{truck.Brand} {truck.Name}".Trim(),
             OdometerKm = dash.Odometer,

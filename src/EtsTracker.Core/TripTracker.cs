@@ -183,6 +183,28 @@ public sealed class ActiveTrip
     public double TruckDamage { get; private set; }
     public double TrailerDamage { get; private set; }
 
+    // Ход рейса
+    public bool CargoLoaded { get; private set; }
+    /// <summary>Проехано с грузом (запасной способ оценить прогресс, если навигатор не проложен).</summary>
+    public double LoadedKm { get; private set; }
+    /// <summary>Осталось по навигатору, км; null — маршрут не проложен.</summary>
+    public double? NavRemainingKm { get; private set; }
+    public double? NavEtaSec { get; private set; }
+    public int? DeadlineMinutesLeft { get; private set; }
+
+    /// <summary>Сколько осталось до финиша, км: по навигатору или по плану заказа минус проеханное с грузом.</summary>
+    public double RemainingKm => NavRemainingKm ?? Math.Max(0, PlannedDistanceKm - LoadedKm);
+
+    /// <summary>Доля пройденного пути с грузом, 0..1 (пока едем за грузом — 0).</summary>
+    public double Progress
+    {
+        get
+        {
+            if (!CargoLoaded || PlannedDistanceKm == 0) return 0;
+            return Math.Clamp(1 - RemainingKm / PlannedDistanceKm, 0, 1);
+        }
+    }
+
     public static ActiveTrip Begin(TelemetryFrame f, bool midJob)
         => new() { StartedAt = DateTime.Now, StartedMidJob = midJob };
 
@@ -205,6 +227,11 @@ public sealed class ActiveTrip
         }
         if (!string.IsNullOrEmpty(f.TruckName)) TruckName = f.TruckName;
 
+        CargoLoaded = f.CargoLoaded;
+        NavRemainingKm = f.NavDistanceKm > 0.05 ? f.NavDistanceKm : null;
+        NavEtaSec = f.NavTimeSec > 0 ? f.NavTimeSec : null;
+        DeadlineMinutesLeft = f.HasDeadline ? f.DeadlineMinutesLeft : null;
+
         _truckWearStart ??= f.TruckWear;
         TruckDamage = Math.Max(TruckDamage, f.TruckWear - _truckWearStart.Value);
         if (f.TrailerCount > 0)
@@ -218,7 +245,11 @@ public sealed class ActiveTrip
 
         // Пробег: прирост одометра (скачки > 5 км за кадр — паром/телепорт, не считаем)
         double dKm = f.OdometerKm - prev.OdometerKm;
-        if (dKm > 0 && dKm < 5) DrivenKm += dKm;
+        if (dKm > 0 && dKm < 5)
+        {
+            DrivenKm += dKm;
+            if (f.CargoLoaded) LoadedKm += dKm;
+        }
 
         // Топливо: считаем только уменьшение (рост — это заправка)
         double dFuel = prev.FuelLiters - f.FuelLiters;

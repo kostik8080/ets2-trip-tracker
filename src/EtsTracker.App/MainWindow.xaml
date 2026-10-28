@@ -70,7 +70,26 @@
                                 <Ellipse x:Name="StatusDot" Width="10" Height="10" Margin="0,0,8,0" Fill="{StaticResource MutedBrush}"/>
                                 <TextBlock x:Name="StatusTitle" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="270"/>
                             </StackPanel>
-                            <TextBlock x:Name="StatusDetails" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="19"/>
+                            <!-- Ход рейса: шкала от погрузки до финиша -->
+                            <StackPanel x:Name="TripProgressPanel" Visibility="Collapsed" Margin="0,10,0,0">
+                                <Grid>
+                                    <TextBlock x:Name="ProgressStage" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="ProgressPercent" HorizontalAlignment="Right" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentBrush}"/>
+                                </Grid>
+                                <ProgressBar x:Name="TripBar" Height="12" Maximum="100" Margin="0,6,0,3"/>
+                                <Grid>
+                                    <TextBlock x:Name="ProgressFrom" FontSize="11" Style="{StaticResource Muted}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="140" HorizontalAlignment="Left"/>
+                                    <TextBlock x:Name="ProgressTo" FontSize="11" Style="{StaticResource Muted}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="140" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <TextBlock x:Name="RemainingText" FontSize="20" FontWeight="Bold" Margin="0,8,0,0"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock x:Name="EtaText" Style="{StaticResource Muted}" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="DeadlineText" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="StatusDetails" TextWrapping="Wrap" Margin="0,8,0,0" LineHeight="19"/>
                             <CheckBox x:Name="ConvoyBox" Content="Этот рейс — конвой" Margin="0,10,0,0"
                                       ToolTip="Отметьте до сдачи груза: рейс запишется как конвой"/>
                             <ItemsControl x:Name="NoticesList" Margin="0,10,0,0">

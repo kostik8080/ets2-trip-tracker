@@ -36,7 +36,8 @@ public sealed class ConsoleUi
             line = "⏸  Пауза";
         else if (tracker.Current is { } t)
             line = $"🚚 {t.CargoName} {t.CargoMassKg / 1000:0.#} т | {t.From} → {t.To} | " +
-                   $"{t.DrivenKm:0} км | ⛽ {t.FuelUsedL:0} л | урон {f.CargoDamage:P1} | " +
+                   (t.CargoLoaded ? $"{t.Progress:P0}, осталось {t.RemainingKm:0} км" : "едем за грузом") +
+                   $" | ⛽ {t.FuelUsedL:0} л | урон {f.CargoDamage:P1} | " +
                    $"{f.SpeedKph:0}/{(f.SpeedLimitKph > 1 ? f.SpeedLimitKph.ToString("0") : "—")} км/ч";
         else
             line = $"🅿  Без заказа | {f.SpeedKph:0} км/ч";

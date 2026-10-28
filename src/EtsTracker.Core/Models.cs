@@ -32,6 +32,16 @@ public sealed record TelemetryFrame
     public string DestinationCompany { get; init; } = "";
     public ulong PlannedIncome { get; init; }
     public uint PlannedDistanceKm { get; init; }
+    /// <summary>Груз прицеплен (до этого водитель едет за грузом).</summary>
+    public bool CargoLoaded { get; init; }
+    /// <summary>Есть ли у заказа срок доставки.</summary>
+    public bool HasDeadline { get; init; }
+    /// <summary>Игровых минут до срока доставки; меньше нуля — опоздание.</summary>
+    public int DeadlineMinutesLeft { get; init; }
+
+    // Навигатор (маршрут в Route Advisor); 0 — маршрут не проложен
+    public float NavDistanceKm { get; init; }
+    public float NavTimeSec { get; init; }
 
     // Грузовик
     public string TruckName { get; init; } = "";

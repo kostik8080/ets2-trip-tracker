@@ -6,7 +6,8 @@ namespace EtsTracker;
 /// </summary>
 public static class DemoTrip
 {
-    public static void Run(TripTracker tracker)
+    /// <param name="duration">Растянуть поездку на это реальное время (чтобы в окне было видно ход рейса); null — мгновенно.</param>
+    public static void Run(TripTracker tracker, TimeSpan? duration = null)
     {
         const double distanceKm = 420;
         const double cruiseKph = 85;
@@ -32,6 +33,8 @@ public static class DemoTrip
             TruckWear = 0.02f,
             TrailerCount = 1,
             TrailerWear = 0.01f,
+            CargoLoaded = true,
+            HasDeadline = true,
         };
 
         // Без заказа → заказ принят
@@ -43,6 +46,11 @@ public static class DemoTrip
         // Едем: один кадр = одна игровая секунда
         double km = 0, fuel = 600, odo = 125_000;
         int second = 0;
+        const int deadlineMinutes = 9 * 60;
+        // Примерное число кадров, чтобы равномерно растянуть демо на duration
+        int totalFrames = (int)(distanceKm / cruiseKph * 3600);
+        int framesPerPause = Math.Max(1, totalFrames / 200);
+        var pause = duration is { } d ? d / 200 : TimeSpan.Zero;
         while (km < distanceKm)
         {
             second++;
@@ -64,8 +72,13 @@ public static class DemoTrip
                 FinedFlag = second is 9000 or 9001,
                 FineAmount = 250,
                 FineOffence = "Red_signal",
+                NavDistanceKm = (float)Math.Max(0, distanceKm - km),
+                NavTimeSec = (float)(Math.Max(0, distanceKm - km) / cruiseKph * 3600),
+                // Срок в игровых минутах: из 9 часов к финишу остаётся около двух
+                DeadlineMinutesLeft = deadlineMinutes - (int)(km / distanceKm * 7 * 60),
             };
             tracker.Process(f);
+            if (pause > TimeSpan.Zero && second % framesPerPause == 0) Thread.Sleep(pause);
         }
 
         // Доставка

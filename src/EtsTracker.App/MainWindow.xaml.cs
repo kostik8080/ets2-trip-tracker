@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> _notices = new();
     private Driver _driver;
     private List<TripResult> _trips = new();
+    private TripTracker? _demoTracker;
 
     public MainWindow(AppServices services, Driver driver)
     {
@@ -108,16 +109,19 @@ public partial class MainWindow : Window
 
     private void UpdateLive()
     {
-        var tracker = _s.Tracker;
+        // Во время демо-рейса показываем его, а не данные игры
+        var tracker = _demoTracker ?? _s.Tracker;
         var f = tracker.LastFrame;
+        bool live = f != null && f.SdkActive && DateTime.Now - tracker.LastFrameAt <= TimeSpan.FromSeconds(5);
+        UpdateProgress(live ? tracker.Current : null);
 
-        if (_s.TelemetryError != null)
+        if (_s.TelemetryError != null && _demoTracker == null)
             SetStatus("Нет связи с телеметрией", "BadBrush", _s.TelemetryError);
-        else if (f == null || !f.SdkActive || DateTime.Now - tracker.LastFrameAt > TimeSpan.FromSeconds(5))
+        else if (!live)
             SetStatus("Игра не запущена", "MutedBrush",
                 "Запустите Euro Truck Simulator 2 — трекер подключится сам. " +
                 "В папке игры должен лежать плагин scs-telemetry.dll.");
-        else if (f.Paused)
+        else if (f!.Paused)
             SetStatus("Пауза", "AccentBrush", tracker.Current != null ? TripText(tracker.Current, f) : "");
         else if (tracker.Current is { } trip)
             SetStatus($"В рейсе: {trip.CargoName}", "GoodBrush", TripText(trip, f));
@@ -126,14 +130,74 @@ public partial class MainWindow : Window
                 $"Скорость {f.SpeedKph:0} км/ч. Возьмите заказ — рейс запишется автоматически.");
     }
 
+    /// <summary>Подробности под шкалой рейса (маршрут и остаток пути — на самой шкале).</summary>
     private static string TripText(ActiveTrip t, TelemetryFrame f)
     {
         string limit = f.SpeedLimitKph > 1 ? f.SpeedLimitKph.ToString("0") : "—";
-        return $"{t.From} → {t.To}\n" +
-               $"{t.CargoMassKg / 1000:0.#} т · проехано {t.DrivenKm:0} из {t.PlannedDistanceKm} км\n" +
+        return $"{t.CargoMassKg / 1000:0.#} т · всего проехано {t.DrivenKm:0} км\n" +
                $"Топливо {t.FuelUsedL:0} л · скорость {f.SpeedKph:0} / {limit} км/ч\n" +
                $"Урон: груз {f.CargoDamage:P1}, тягач {t.TruckDamage:P1}, прицеп {t.TrailerDamage:P1}" +
                (t.FinesCount > 0 ? $"\nШтрафов: {t.FinesCount} (€{t.FinesTotal:N0})" : "");
+    }
+
+    /// <summary>Шкала рейса: сколько пройдено и сколько осталось до финиша.</summary>
+    private void UpdateProgress(ActiveTrip? t)
+    {
+        if (t == null)
+        {
+            TripProgressPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+        TripProgressPanel.Visibility = Visibility.Visible;
+        ProgressFrom.Text = City(t.From);
+        ProgressTo.Text = City(t.To);
+
+        if (!t.CargoLoaded)
+        {
+            ProgressStage.Text = "🚚 Едем за грузом";
+            ProgressPercent.Text = "";
+            TripBar.Value = 0;
+            RemainingText.Text = t.NavRemainingKm is { } toCargo
+                ? $"до погрузки {toCargo:N0} км"
+                : "проложите маршрут в навигаторе";
+        }
+        else
+        {
+            ProgressStage.Text = "🚚 Везём груз";
+            ProgressPercent.Text = t.Progress.ToString("P0");
+            TripBar.Value = t.Progress * 100;
+            RemainingText.Text = t.PlannedDistanceKm > 0
+                ? $"осталось {t.RemainingKm:N0} км из {t.PlannedDistanceKm:N0}"
+                : $"осталось {t.RemainingKm:N0} км";
+        }
+
+        EtaText.Text = t.NavEtaSec is { } eta ? $"В пути ещё ≈ {Duration(eta / 60)} (по навигатору)" : "";
+        EtaText.Visibility = t.NavEtaSec != null ? Visibility.Visible : Visibility.Collapsed;
+
+        if (t.DeadlineMinutesLeft is { } left)
+        {
+            DeadlineText.Text = left >= 0
+                ? $"До срока доставки: {Duration(left)} игрового времени"
+                : $"⚠ Опоздание: {Duration(-left)} игрового времени";
+            DeadlineText.Foreground = (Brush)FindResource(left < 0 ? "BadBrush" : left < 60 ? "AccentBrush" : "TextBrush");
+            DeadlineText.Visibility = Visibility.Visible;
+        }
+        else DeadlineText.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>«Хельсинки (Lisette Logistics)» → «Хельсинки».</summary>
+    private static string City(string place)
+    {
+        int i = place.IndexOf(" (", StringComparison.Ordinal);
+        return i > 0 ? place[..i] : place;
+    }
+
+    /// <summary>Минуты → «2 ч 05 мин».</summary>
+    private static string Duration(double minutes)
+    {
+        var total = (int)Math.Round(minutes);
+        if (total >= 24 * 60) return $"{total / (24 * 60)} д {total % (24 * 60) / 60} ч";
+        return total >= 60 ? $"{total / 60} ч {total % 60:00} мин" : $"{total} мин";
     }
 
     private void SetStatus(string title, string brushKey, string details)
@@ -147,7 +211,7 @@ public partial class MainWindow : Window
     private async void OnDemo(object sender, RoutedEventArgs e)
     {
         var answer = MessageBox.Show(this,
-            "Демо-рейс имитирует поездку Хельсинки → Турку без игры и запишется в историю водителя. " +
+            "Демо-рейс за 20 секунд имитирует поездку Хельсинки → Турку без игры и запишется в историю водителя. " +
             "Потом его можно удалить на вкладке «Рейсы».\n\nЗапустить?",
             "Демо-рейс", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes) return;
@@ -157,8 +221,14 @@ public partial class MainWindow : Window
         demo.Notice += msg => Dispatcher.BeginInvoke(() => AddNotice(msg));
         demo.TripFinished += trip => Dispatcher.BeginInvoke(() => OnTripFinished(trip));
         AddNotice("Демо-рейс: имитирую поездку…");
-        try { await Task.Run(() => DemoTrip.Run(demo)); }
-        finally { DemoButton.IsEnabled = true; }
+        _demoTracker = demo;
+        try { await Task.Run(() => DemoTrip.Run(demo, TimeSpan.FromSeconds(20))); }
+        finally
+        {
+            _demoTracker = null;
+            DemoButton.IsEnabled = true;
+            UpdateLive();
+        }
     }
 
     // ────────────────────────── Данные и вкладки ──────────────────────────
