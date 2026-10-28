@@ -47,7 +47,9 @@
                     </StackPanel>
                     <Button Content="Профиль" Click="OnEditProfile" Style="{StaticResource HeaderButton}"/>
                     <Button Content="Сменить водителя" Click="OnSwitchDriver" Style="{StaticResource HeaderButton}"/>
-                    <Button Content="Компания" Click="OnEditCompany" Style="{StaticResource HeaderButton}" Margin="0"
+                    <Button x:Name="DriversButton" Content="Водители" Click="OnManageDrivers" Style="{StaticResource HeaderButton}"
+                            ToolTip="Ранги, допуски и роли всех водителей (для администратора)"/>
+                    <Button x:Name="CompanyButton" Content="Компания" Click="OnEditCompany" Style="{StaticResource HeaderButton}" Margin="0"
                             ToolTip="Название и логотип компании"/>
                 </StackPanel>
             </Grid>
@@ -195,11 +197,14 @@
                                                 <ComboBox x:Name="ClassBox" DisplayMemberPath="Name" SelectedValuePath="Value"/>
                                             </StackPanel>
                                         </Grid>
-                                        <WrapPanel Margin="0,10,0,0">
+                                        <WrapPanel x:Name="TripAdminButtons" Margin="0,10,0,0">
                                             <Button Content="Сохранить и пересчитать" Style="{StaticResource PrimaryButton}"
                                                     Click="OnReclassify" Padding="10,5"/>
                                             <Button Content="Удалить" Click="OnDeleteTrip" Padding="10,5" Margin="0"/>
                                         </WrapPanel>
+                                        <TextBlock x:Name="TripAdminHint" Style="{StaticResource Muted}" FontSize="12"
+                                                   TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed"
+                                                   Text="Тип поездки и класс груза поправляет администратор компании."/>
 
                                         <TextBlock Text="ОЧКИ ТРЕКЕРА" Style="{StaticResource CardTitle}" Margin="0,18,0,6"/>
                                         <ItemsControl x:Name="ScoreLines" ItemTemplate="{StaticResource LineTemplate}"/>

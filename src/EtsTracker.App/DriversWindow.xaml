@@ -1,0 +1,30 @@
+<Window x:Class="EtsTracker.App.DriversWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Водители компании" Width="860" Height="520"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Водители компании" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
+                       Text="Администратор меняет ранги, допуски и роли. Дважды щёлкните по водителю, чтобы изменить его."/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Новый водитель…" Click="OnNew"/>
+            <Button x:Name="EditButton" Content="Изменить…" Style="{StaticResource PrimaryButton}" Click="OnEdit"/>
+            <Button Content="Закрыть" IsCancel="True" Margin="0"/>
+        </StackPanel>
+
+        <DataGrid x:Name="DriversGrid" MouseDoubleClick="OnEdit" SelectionChanged="OnSelectionChanged">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="№" Binding="{Binding RegNumber}" Width="50"/>
+                <DataGridTextColumn Header="Никнейм" Binding="{Binding Nickname}" Width="*"/>
+                <DataGridTextColumn Header="Ранг" Binding="{Binding Rank}" Width="150"/>
+                <DataGridTextColumn Header="Грузовик" Binding="{Binding Truck}" Width="140"/>
+                <DataGridTextColumn Header="Допуски" Binding="{Binding Permits}" Width="150"/>
+                <DataGridTextColumn Header="Роль" Binding="{Binding Role}" Width="140"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

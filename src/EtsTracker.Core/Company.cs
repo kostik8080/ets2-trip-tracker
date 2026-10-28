@@ -46,6 +46,8 @@ public sealed class Driver
     public bool PermitAdr { get; set; }
     public bool PermitHeavy { get; set; }
     public bool PermitArticulated { get; set; }
+    /// <summary>Администратор компании: меняет ранги и допуски, правит рейсы, назначает других администраторов.</summary>
+    public bool IsAdmin { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public override string ToString() => Nickname;

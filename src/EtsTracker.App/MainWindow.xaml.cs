@@ -54,6 +54,7 @@ public partial class MainWindow : Window
 
     private void OnEditCompany(object sender, RoutedEventArgs e)
     {
+        if (!_driver.IsAdmin) return;
         if (new CompanyWindow(_s) { Owner = this }.ShowDialog() == true)
             ShowCompany();
     }
@@ -63,17 +64,39 @@ public partial class MainWindow : Window
     private void ShowDriver()
     {
         RegNumberText.Text = _driver.RegNumber;
-        DriverNameText.Text = _driver.Nickname;
-        DriverInfoText.Text = string.IsNullOrEmpty(_driver.Truck)
-            ? Names.Of(_driver.Rank)
-            : $"{Names.Of(_driver.Rank)} · {_driver.Truck}";
+        DriverNameText.Text = _driver.IsAdmin ? $"{_driver.Nickname}  ★" : _driver.Nickname;
+        var info = new List<string> { Names.Of(_driver.Rank) };
+        if (_driver.IsAdmin) info.Add("администратор");
+        if (!string.IsNullOrEmpty(_driver.Truck)) info.Add(_driver.Truck);
+        DriverInfoText.Text = string.Join(" · ", info);
+
+        // Права администратора
+        var admin = _driver.IsAdmin ? Visibility.Visible : Visibility.Collapsed;
+        DriversButton.Visibility = admin;
+        CompanyButton.Visibility = admin;
+        TripAdminButtons.Visibility = admin;
+        DemoButton.Visibility = admin; // демо-рейс пишет зарплату — только для администратора
+        TripAdminHint.Visibility = _driver.IsAdmin ? Visibility.Collapsed : Visibility.Visible;
+        KindBox.IsEnabled = ClassBox.IsEnabled = _driver.IsAdmin;
         Title = $"{_s.Company.CompanyName} — {_driver.Nickname}";
     }
 
     private void OnEditProfile(object sender, RoutedEventArgs e)
     {
-        var edit = new DriverEditWindow(_s, _driver) { Owner = this };
+        var edit = new DriverEditWindow(_s, _driver, canManage: _driver.IsAdmin) { Owner = this };
         if (edit.ShowDialog() != true) return;
+        ShowDriver();
+        Reload(SelectedTrip?.Id);
+    }
+
+    private void OnManageDrivers(object sender, RoutedEventArgs e)
+    {
+        if (!_driver.IsAdmin) return;
+        var window = new DriversWindow(_s) { Owner = this };
+        window.ShowDialog();
+        if (!window.Changed) return;
+        // Текущего водителя могли изменить (ранг, роль) — перечитываем его из базы
+        _driver = _s.Repo.GetDrivers().FirstOrDefault(d => d.Id == _driver.Id) ?? _driver;
         ShowDriver();
         Reload(SelectedTrip?.Id);
     }
@@ -351,7 +374,7 @@ public partial class MainWindow : Window
 
     private void OnReclassify(object sender, RoutedEventArgs e)
     {
-        if (SelectedTrip is not { } t) return;
+        if (!_driver.IsAdmin || SelectedTrip is not { } t) return;
         var kind = KindBox.SelectedValue is TripKind k ? k : t.Kind;
         var cls = ClassBox.SelectedValue is CargoClass c ? c : t.CargoClass;
         _s.Career.Reclassify(t, _driver, kind, cls);
@@ -360,7 +383,7 @@ public partial class MainWindow : Window
 
     private void OnDeleteTrip(object sender, RoutedEventArgs e)
     {
-        if (SelectedTrip is not { } t) return;
+        if (!_driver.IsAdmin || SelectedTrip is not { } t) return;
         var answer = MessageBox.Show(this,
             $"Удалить рейс «{t.CargoName}» ({t.From} → {t.To}) от {t.FinishedAt:dd.MM.yyyy HH:mm}?\nВернуть его будет нельзя.",
             "Удаление рейса", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);

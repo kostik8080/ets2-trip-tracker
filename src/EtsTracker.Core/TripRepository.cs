@@ -68,7 +68,17 @@ public sealed class TripRepository
         AddColumnIfMissing(c, "trips", "trailer_damage", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "trips", "salary", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "trips", "salary_json", "TEXT NOT NULL DEFAULT '[]'");
+        AddColumnIfMissing(c, "drivers", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+        EnsureAdmin(c);
     }
+
+    /// <summary>Если администратора нет, им становится первый зарегистрированный водитель.</summary>
+    private static void EnsureAdmin(SqliteConnection c)
+        => Exec(c, """
+            UPDATE drivers SET is_admin = 1
+            WHERE id = (SELECT MIN(id) FROM drivers)
+              AND NOT EXISTS (SELECT 1 FROM drivers WHERE is_admin = 1);
+            """);
 
     // ───────────────────────────── Водители ─────────────────────────────
 
@@ -77,7 +87,7 @@ public sealed class TripRepository
         using var c = Open();
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
-            SELECT id, nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, created_at
+            SELECT id, nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, created_at, is_admin
             FROM drivers ORDER BY reg_number, nickname;
             """;
         using var r = cmd.ExecuteReader();
@@ -95,6 +105,7 @@ public sealed class TripRepository
                 PermitHeavy = r.GetBoolean(6),
                 PermitArticulated = r.GetBoolean(7),
                 CreatedAt = ParseDate(r.GetString(8)),
+                IsAdmin = r.GetBoolean(9),
             });
         }
         return list;
@@ -118,8 +129,8 @@ public sealed class TripRepository
         using var cmd = c.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = """
-            INSERT INTO drivers (nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, created_at)
-            VALUES ($nick, $reg, $truck, $rank, $adr, $heavy, $art, $created);
+            INSERT INTO drivers (nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, is_admin, created_at)
+            VALUES ($nick, $reg, $truck, $rank, $adr, $heavy, $art, $admin, $created);
             SELECT last_insert_rowid();
             """;
         d.CreatedAt = DateTime.Now;
@@ -136,6 +147,22 @@ public sealed class TripRepository
         adopt.Parameters.AddWithValue("$id", d.Id);
         adopt.ExecuteNonQuery();
         tx.Commit();
+
+        EnsureAdmin(c);
+        using var check = c.CreateCommand();
+        check.CommandText = "SELECT is_admin FROM drivers WHERE id = $id;";
+        check.Parameters.AddWithValue("$id", d.Id);
+        d.IsAdmin = (long)check.ExecuteScalar()! == 1;
+    }
+
+    /// <summary>Сколько администраторов, не считая указанного водителя.</summary>
+    public int OtherAdminsCount(long exceptId)
+    {
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM drivers WHERE is_admin = 1 AND id <> $id;";
+        cmd.Parameters.AddWithValue("$id", exceptId);
+        return (int)(long)cmd.ExecuteScalar()!;
     }
 
     public void UpdateDriver(Driver d)
@@ -144,7 +171,7 @@ public sealed class TripRepository
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
             UPDATE drivers SET nickname = $nick, reg_number = $reg, truck = $truck, rank = $rank,
-                permit_adr = $adr, permit_heavy = $heavy, permit_articulated = $art
+                permit_adr = $adr, permit_heavy = $heavy, permit_articulated = $art, is_admin = $admin
             WHERE id = $id;
             """;
         AddDriverParams(cmd, d);
@@ -162,6 +189,7 @@ public sealed class TripRepository
         p.AddWithValue("$adr", d.PermitAdr);
         p.AddWithValue("$heavy", d.PermitHeavy);
         p.AddWithValue("$art", d.PermitArticulated);
+        p.AddWithValue("$admin", d.IsAdmin);
     }
 
     // ────────────────────────────── Рейсы ──────────────────────────────

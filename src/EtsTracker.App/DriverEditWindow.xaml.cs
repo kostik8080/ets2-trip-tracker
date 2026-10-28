@@ -2,20 +2,27 @@ using System.Windows;
 
 namespace EtsTracker.App;
 
-/// <summary>Регистрация нового водителя или правка профиля.</summary>
+/// <summary>
+/// Регистрация нового водителя или правка профиля.
+/// Ранг, допуски и роль администратора меняет только администратор (canManage);
+/// самый первый водитель регистрируется сам и становится администратором.
+/// </summary>
 public partial class DriverEditWindow : Window
 {
     private readonly AppServices _services;
     private readonly bool _isNew;
+    private readonly bool _canManage;
 
     public Driver Driver { get; }
 
-    public DriverEditWindow(AppServices services, Driver? driver)
+    public DriverEditWindow(AppServices services, Driver? driver, bool canManage)
     {
         InitializeComponent();
         _services = services;
         _isNew = driver == null;
-        Driver = driver ?? new Driver { RegNumber = NextRegNumber(services.Repo.GetDrivers()) };
+        _canManage = canManage;
+        var drivers = services.Repo.GetDrivers();
+        Driver = driver ?? new Driver { RegNumber = NextRegNumber(drivers) };
 
         HeaderText.Text = _isNew ? "Регистрация водителя" : "Профиль водителя";
         TruckBox.ItemsSource = services.Company.Trucks;
@@ -28,6 +35,19 @@ public partial class DriverEditWindow : Window
         AdrBox.IsChecked = Driver.PermitAdr;
         HeavyBox.IsChecked = Driver.PermitHeavy;
         ArticulatedBox.IsChecked = Driver.PermitArticulated;
+        AdminBox.IsChecked = Driver.IsAdmin || (_isNew && drivers.Count == 0);
+
+        RankBox.IsEnabled = AdrBox.IsEnabled = HeavyBox.IsEnabled = ArticulatedBox.IsEnabled = AdminBox.IsEnabled = canManage;
+        if (_isNew && drivers.Count == 0)
+        {
+            AdminBox.IsEnabled = false;
+            ManageHint.Text = "Первый водитель становится администратором компании.";
+        }
+        else if (!canManage)
+        {
+            ManageHint.Text = "Ранг, допуски и роль меняет администратор компании.";
+        }
+        ManageHint.Visibility = string.IsNullOrEmpty(ManageHint.Text) ? Visibility.Collapsed : Visibility.Visible;
 
         Loaded += (_, _) => NicknameBox.Focus();
     }
@@ -53,13 +73,24 @@ public partial class DriverEditWindow : Window
             return;
         }
 
+        bool admin = AdminBox.IsChecked == true;
+        if (!_isNew && Driver.IsAdmin && !admin && _services.Repo.OtherAdminsCount(Driver.Id) == 0)
+        {
+            ShowError("Это единственный администратор. Сначала назначьте администратором другого водителя.");
+            return;
+        }
+
         Driver.Nickname = nickname;
         Driver.RegNumber = RegNumberBox.Text.Trim();
         Driver.Truck = TruckBox.Text.Trim();
-        Driver.Rank = RankBox.SelectedValue is DriverRank r ? r : DriverRank.Trainee;
-        Driver.PermitAdr = AdrBox.IsChecked == true;
-        Driver.PermitHeavy = HeavyBox.IsChecked == true;
-        Driver.PermitArticulated = ArticulatedBox.IsChecked == true;
+        if (_canManage)
+        {
+            Driver.Rank = RankBox.SelectedValue is DriverRank r ? r : DriverRank.Trainee;
+            Driver.PermitAdr = AdrBox.IsChecked == true;
+            Driver.PermitHeavy = HeavyBox.IsChecked == true;
+            Driver.PermitArticulated = ArticulatedBox.IsChecked == true;
+            Driver.IsAdmin = admin;
+        }
 
         if (_isNew)
         {

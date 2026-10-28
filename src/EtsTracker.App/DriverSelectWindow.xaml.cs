@@ -32,7 +32,9 @@ public partial class DriverSelectWindow : Window
 
     private void OnNew(object sender, RoutedEventArgs e)
     {
-        var edit = new DriverEditWindow(_services, null) { Owner = this };
+        // Самый первый водитель регистрируется сам; остальных назначает администратор
+        bool first = _services.Repo.GetDrivers().Count == 0;
+        var edit = new DriverEditWindow(_services, null, canManage: first) { Owner = this };
         if (edit.ShowDialog() == true)
             Load(edit.Driver.Id);
     }
@@ -50,6 +52,6 @@ public partial class DriverSelectWindow : Window
         public string Nickname => Driver.Nickname;
         public string RegNumber => Driver.RegNumber;
         public string Truck => string.IsNullOrEmpty(Driver.Truck) ? "грузовик не указан" : Driver.Truck;
-        public string RankName => Names.Of(Driver.Rank);
+        public string RankName => Driver.IsAdmin ? $"{Names.Of(Driver.Rank)} · ★ администратор" : Names.Of(Driver.Rank);
     }
 }

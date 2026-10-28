@@ -35,6 +35,11 @@
             <CheckBox x:Name="ArticulatedBox" Content="Сочленённые"/>
         </WrapPanel>
 
+        <TextBlock Text="Роль" Style="{StaticResource FieldLabel}"/>
+        <CheckBox x:Name="AdminBox" Content="Администратор компании"/>
+        <TextBlock x:Name="ManageHint" Style="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                   Margin="0,8,0,0" Visibility="Collapsed"/>
+
         <TextBlock x:Name="ErrorText" Foreground="{StaticResource BadBrush}" Margin="0,12,0,0"
                    TextWrapping="Wrap" Visibility="Collapsed"/>
 
