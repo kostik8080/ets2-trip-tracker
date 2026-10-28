@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Плагин телеметрии RenCloud/scs-sdk-plugin (MIT): трекер сам ставит его в папку игры -->
+    <EmbeddedResource Include="..\..\plugins\scs-telemetry.dll" LogicalName="scs-telemetry.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\EtsTracker.Core\EtsTracker.Core.csproj" />
   </ItemGroup>
 

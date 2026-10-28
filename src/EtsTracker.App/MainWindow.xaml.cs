@@ -39,6 +39,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _timer.Stop();
 
         ShowCompany();
+        UpdatePlugin();
         Reload();
         UpdateLive();
     }
@@ -110,6 +111,57 @@ public partial class MainWindow : Window
         Reload();
     }
 
+    // ───────────────────────── Плагин телеметрии ─────────────────────────
+
+    private string? _gameDir;
+
+    private void UpdatePlugin()
+    {
+        _gameDir = PluginInstaller.FindGame(_s.State.GameDir);
+        var state = PluginInstaller.GetState(_gameDir);
+        (string text, string brush, string? button) = state switch
+        {
+            PluginState.Installed => ("✔ Плагин телеметрии установлен", "GoodBrush", null),
+            PluginState.NotInstalled => ("Плагин телеметрии не установлен — без него трекер не видит игру.", "BadBrush", "Установить плагин"),
+            PluginState.Outdated => ("В игре другая версия плагина телеметрии.", "AccentBrush", "Обновить плагин"),
+            _ => ("Папка Euro Truck Simulator 2 не найдена в Steam.", "MutedBrush", "Указать папку игры…"),
+        };
+        PluginText.Text = text;
+        PluginText.Foreground = (Brush)FindResource(brush);
+        PluginText.ToolTip = _gameDir;
+        PluginButton.Content = button;
+        PluginButton.Visibility = button == null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void OnPluginButton(object sender, RoutedEventArgs e)
+    {
+        if (_gameDir == null)
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Папка Euro Truck Simulator 2" };
+            if (dialog.ShowDialog(this) != true) return;
+            if (!PluginInstaller.IsGameDir(dialog.FolderName))
+            {
+                MessageBox.Show(this, @"В этой папке нет игры: не найден bin\win_x64\eurotrucks2.exe." + "\n" +
+                    "Выберите корневую папку «Euro Truck Simulator 2».", "Плагин", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            _s.State.GameDir = dialog.FolderName;
+            _s.State.Save(_s.DataDir);
+            _gameDir = dialog.FolderName;
+        }
+
+        try
+        {
+            PluginInstaller.Install(_gameDir);
+            AddNotice("✔ Плагин телеметрии установлен. При запуске игры нажмите «ОК» в окне про SDK.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(this, ex.Message, "Плагин", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        UpdatePlugin();
+    }
+
     // ─────────────────────────── Текущий рейс ───────────────────────────
 
     private void OnTripFinished(TripResult trip)
@@ -142,8 +194,7 @@ public partial class MainWindow : Window
             SetStatus("Нет связи с телеметрией", "BadBrush", _s.TelemetryError);
         else if (!live)
             SetStatus("Игра не запущена", "MutedBrush",
-                "Запустите Euro Truck Simulator 2 — трекер подключится сам. " +
-                "В папке игры должен лежать плагин scs-telemetry.dll.");
+                "Запустите Euro Truck Simulator 2 — трекер подключится сам.");
         else if (f!.Paused)
             SetStatus("Пауза", "AccentBrush", tracker.Current != null ? TripText(tracker.Current, f) : "");
         else if (tracker.Current is { } trip)

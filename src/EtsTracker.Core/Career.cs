@@ -130,6 +130,8 @@ public sealed record DriverStats
 public sealed class AppState
 {
     public long? LastDriverId { get; set; }
+    /// <summary>Папка ETS2, указанная вручную (если игра установлена не через Steam).</summary>
+    public string? GameDir { get; set; }
 
     public static string PathIn(string dataDir) => Path.Combine(dataDir, "app.json");
 

@@ -105,6 +105,16 @@
                             <Button x:Name="DemoButton" Content="Демо-рейс" Click="OnDemo" HorizontalAlignment="Left"
                                     Margin="0,10,0,0" Padding="10,3" FontSize="12"
                                     ToolTip="Имитирует рейс без игры — чтобы посмотреть, как всё работает"/>
+
+                            <!-- Плагин телеметрии в папке игры -->
+                            <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                                    Margin="0,12,0,0" Padding="0,10,0,0">
+                                <StackPanel>
+                                    <TextBlock x:Name="PluginText" TextWrapping="Wrap" FontSize="12"/>
+                                    <Button x:Name="PluginButton" Click="OnPluginButton" HorizontalAlignment="Left"
+                                            Margin="0,6,0,0" Padding="10,3" FontSize="12" Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 
