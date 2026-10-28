@@ -6,3 +6,7 @@ obj/
 *.xlsx
 *.db
 publish/
+# Картинки в корне — рабочие файлы, логотип программы лежит в src/EtsTracker.App/Assets
+/*.jpg
+/*.jpeg
+/*.png
