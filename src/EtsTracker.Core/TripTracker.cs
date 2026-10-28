@@ -111,7 +111,12 @@ public sealed class TripTracker
             SpecialJob = t.SpecialJob,
             From = t.From,
             To = t.To,
+            FromCityId = t.FromCityId,
+            ToCityId = t.ToCityId,
             TruckName = t.TruckName,
+            TrailerCount = t.TrailerCount,
+            TruckDamage = t.TruckDamage,
+            TrailerDamage = t.TrailerDamage,
             DrivenKm = t.DrivenKm,
             FuelUsedL = t.FuelUsedL,
             FinesCount = t.FinesCount,
@@ -156,7 +161,10 @@ public sealed class ActiveTrip
     public bool SpecialJob { get; private set; }
     public string From { get; private set; } = "";
     public string To { get; private set; } = "";
+    public string FromCityId { get; private set; } = "";
+    public string ToCityId { get; private set; } = "";
     public string TruckName { get; private set; } = "";
+    public int TrailerCount { get; private set; }
     public ulong PlannedIncome { get; private set; }
     public uint PlannedDistanceKm { get; private set; }
     public float LastCargoDamage { get; private set; }
@@ -168,6 +176,12 @@ public sealed class ActiveTrip
     public int FinesCount { get; set; }
     public long FinesTotal { get; set; }
     public long TollsTotal { get; set; }
+
+    // Урон считаем как прирост износа с начала рейса (ремонт по пути урон не «обнуляет»)
+    private float? _truckWearStart;
+    private float? _trailerWearStart;
+    public double TruckDamage { get; private set; }
+    public double TrailerDamage { get; private set; }
 
     public static ActiveTrip Begin(TelemetryFrame f, bool midJob)
         => new() { StartedAt = DateTime.Now, StartedMidJob = midJob };
@@ -183,11 +197,22 @@ public sealed class ActiveTrip
             SpecialJob = f.SpecialJob;
             From = Place(f.SourceCity, f.SourceCompany);
             To = Place(f.DestinationCity, f.DestinationCompany);
+            FromCityId = f.SourceCityId;
+            ToCityId = f.DestinationCityId;
             PlannedIncome = f.PlannedIncome;
             PlannedDistanceKm = f.PlannedDistanceKm;
             LastCargoDamage = f.CargoDamage;
         }
         if (!string.IsNullOrEmpty(f.TruckName)) TruckName = f.TruckName;
+
+        _truckWearStart ??= f.TruckWear;
+        TruckDamage = Math.Max(TruckDamage, f.TruckWear - _truckWearStart.Value);
+        if (f.TrailerCount > 0)
+        {
+            TrailerCount = Math.Max(TrailerCount, f.TrailerCount);
+            _trailerWearStart ??= f.TrailerWear;
+            TrailerDamage = Math.Max(TrailerDamage, f.TrailerWear - _trailerWearStart.Value);
+        }
 
         if (prev == null || f.Paused || prev.Paused) return;
 

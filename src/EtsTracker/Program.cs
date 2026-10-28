@@ -10,21 +10,30 @@ Directory.CreateDirectory(dataDir);
 
 var settings = ConfigStore.LoadOrCreate<ScoreSettings>(Path.Combine(dataDir, "scoring.json"));
 var catalog = ConfigStore.LoadOrCreate<CargoCatalog>(Path.Combine(dataDir, "cargo.json"));
+var company = ConfigStore.LoadOrCreate<CompanySettings>(Path.Combine(dataDir, "company.json"));
 var repo = new TripRepository(Path.Combine(dataDir, "trips.db"));
+var career = new CareerService(repo, company);
 var tracker = new TripTracker(catalog, settings);
 var ui = new ConsoleUi();
+
+// Рейсы пишутся водителю, который последним был выбран в окне трекера
+var state = File.Exists(AppState.PathIn(dataDir)) ? ConfigStore.LoadOrCreate<AppState>(AppState.PathIn(dataDir)) : new AppState();
+var driver = repo.GetDrivers().FirstOrDefault(d => d.Id == state.LastDriverId);
 
 tracker.TripStarted += _ => ui.Print("🚚 Новый заказ — запись рейса началась.");
 tracker.Notice += msg => ui.Print(msg);
 tracker.TripFinished += trip =>
 {
-    repo.Save(trip);
+    career.Record(trip, driver, TripKind.Solo);
     ui.PrintTrip(trip);
-    ui.PrintStats(repo.GetStats());
+    ui.PrintStats(repo.GetStats(driver?.Id));
 };
 
 ui.PrintHeader();
-ui.PrintStats(repo.GetStats());
+ui.Print(driver != null
+    ? $"👤 Водитель: {driver.Nickname} ({Names.Of(driver.Rank)})"
+    : "👤 Водитель не выбран: рейсы запишутся без водителя и без зарплаты.");
+ui.PrintStats(repo.GetStats(driver?.Id));
 
 if (args.Contains("--demo"))
 {
@@ -35,7 +44,7 @@ if (args.Contains("--demo"))
 
 if (args.Contains("--history"))
 {
-    ui.PrintHistory(repo.GetRecent(20));
+    ui.PrintHistory(repo.GetTrips(driver?.Id, 20));
     return;
 }
 

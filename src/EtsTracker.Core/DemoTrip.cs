@@ -19,14 +19,19 @@ public static class DemoTrip
             CargoName = "Стекло",
             CargoMassKg = 18_200,
             SourceCity = "Хельсинки",
+            SourceCityId = "helsinki",
             SourceCompany = "Lisette Logistics",
             DestinationCity = "Турку",
+            DestinationCityId = "turku",
             DestinationCompany = "Tradeaux",
             PlannedIncome = 7_400,
             PlannedDistanceKm = 420,
             TruckName = "Scania S",
             FuelLiters = 600,
             SpeedLimitKph = 80,
+            TruckWear = 0.02f,
+            TrailerCount = 1,
+            TrailerWear = 0.01f,
         };
 
         // Без заказа → заказ принят
@@ -53,6 +58,8 @@ public static class DemoTrip
                 FuelLiters = (float)fuel,
                 SpeedKph = (float)speed,
                 CargoDamage = (float)(0.012 * km / distanceKm),
+                TruckWear = (float)(0.02 + 0.03 * km / distanceKm),
+                TrailerWear = (float)(0.01 + 0.015 * km / distanceKm),
                 // Штраф за проезд на красный где-то посередине
                 FinedFlag = second is 9000 or 9001,
                 FineAmount = 250,

@@ -10,7 +10,7 @@ public sealed class ConsoleUi
     {
         Print("""
             ╔══════════════════════════════════════╗
-            ║        ETS2 Trip Tracker  v0.1       ║
+            ║        ETS2 Trip Tracker  v0.2       ║
             ╚══════════════════════════════════════╝
             """);
     }
@@ -69,7 +69,7 @@ public sealed class ConsoleUi
             Console.WriteLine($" Маршрут:   {t.From} → {t.To}");
             Console.WriteLine($" Дистанция: {t.JobDistanceKm:0} км (проехано всего {t.DrivenKm:0} км)");
             Console.WriteLine($" Топливо:   {t.FuelUsedL:0.0} л ({t.FuelPer100Km:0.0} л/100 км)");
-            Console.WriteLine($" Урон:      {t.CargoDamage:P1}");
+            Console.WriteLine($" Урон:      груз {t.CargoDamage:P1}, тягач {t.TruckDamage:P1}, прицеп {t.TrailerDamage:P1}");
             Console.WriteLine($" Заработок: €{t.Revenue:N0}   Опыт: +{t.EarnedXp}");
             if (t.FinesCount > 0)
                 Console.WriteLine($" Штрафы:    {t.FinesCount} шт. на €{t.FinesTotal:N0}");
@@ -80,6 +80,10 @@ public sealed class ConsoleUi
                 Console.WriteLine($" {line.Label,-46} {line.Points,7:+0;-0;0}");
             Console.WriteLine("───────────────────────────────────────");
             Console.WriteLine($" ИТОГО: {t.Score} очков   Оценка: {t.Grade}");
+            Console.WriteLine($"────────── Зарплата ({Names.Of(t.CargoClass)}) ──────────");
+            foreach (var line in t.SalaryBreakdown)
+                Console.WriteLine($" {line.Label,-46} {line.Points,9:N0}");
+            Console.WriteLine($" ИТОГО: €{t.Salary:N0}");
             Console.WriteLine("═══════════════════════════════════════");
             Console.WriteLine();
         }
@@ -87,18 +91,17 @@ public sealed class ConsoleUi
 
     public void PrintStats(CareerStats s)
     {
-        int level = (int)Math.Floor(Math.Sqrt(Math.Max(0, s.TotalScore) / 100.0)) + 1;
-        long nextLevelAt = (long)level * level * 100;
-        Print($"🏆 Уровень {level} | очков: {s.TotalScore:N0} (до следующего: {nextLevelAt - s.TotalScore:N0}) | " +
+        var lvl = DriverLevel.From(s.TotalScore);
+        Print($"🏆 Уровень {lvl.Level} | очков: {s.TotalScore:N0} (до следующего: {lvl.NextLevelAt - lvl.Score:N0}) | " +
               $"рейсов: {s.Delivered}/{s.Trips} | {s.TotalKm:N0} км | {s.TotalTonnes:N0} т | " +
               $"⛽ {s.TotalFuelL:N0} л | €{s.TotalRevenue:N0} | без царапин: {s.PerfectDeliveries} | штрафов: {s.TotalFines}\n");
     }
 
-    public void PrintHistory(List<(DateTime When, string Cargo, string Route, int Score, string Grade)> trips)
+    public void PrintHistory(List<TripResult> trips)
     {
         Print("Последние рейсы:");
         foreach (var t in trips)
-            Print($"  {t.When:dd.MM HH:mm}  [{t.Grade}] {t.Score,6}  {t.Cargo}  {t.Route}");
+            Print($"  {t.FinishedAt:dd.MM HH:mm}  [{t.Grade}] {t.Score,6}  €{t.Salary,9:N0}  {t.CargoName}  {t.From} → {t.To}");
         if (trips.Count == 0) Print("  пока пусто");
     }
 

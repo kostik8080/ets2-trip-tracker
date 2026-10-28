@@ -25,8 +25,10 @@ public sealed record TelemetryFrame
     public float CargoDamage { get; init; }          // 0..1
     public bool SpecialJob { get; init; }
     public string SourceCity { get; init; } = "";
+    public string SourceCityId { get; init; } = "";
     public string SourceCompany { get; init; } = "";
     public string DestinationCity { get; init; } = "";
+    public string DestinationCityId { get; init; } = "";
     public string DestinationCompany { get; init; } = "";
     public ulong PlannedIncome { get; init; }
     public uint PlannedDistanceKm { get; init; }
@@ -37,6 +39,13 @@ public sealed record TelemetryFrame
     public float FuelLiters { get; init; }
     public float SpeedKph { get; init; }
     public float SpeedLimitKph { get; init; }
+    /// <summary>Износ тягача 0..1 — самая изношенная из частей (двигатель, КПП, кабина, шасси, колёса).</summary>
+    public float TruckWear { get; init; }
+
+    // Прицепы
+    public int TrailerCount { get; init; }
+    /// <summary>Износ прицепа 0..1 — максимум по прицепленным прицепам.</summary>
+    public float TrailerWear { get; init; }
 
     // Данные событий
     public DeliveredInfo? Delivered { get; init; }
@@ -72,7 +81,10 @@ public sealed record ScoreLine(string Label, double Points);
 public sealed class TripResult
 {
     public long Id { get; set; }
+    public long? DriverId { get; set; }
     public TripStatus Status { get; set; }
+    public TripKind Kind { get; set; }
+    public CargoClass CargoClass { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime FinishedAt { get; set; }
 
@@ -84,8 +96,13 @@ public sealed class TripResult
 
     public string From { get; set; } = "";
     public string To { get; set; } = "";
+    public string FromCityId { get; set; } = "";
+    public string ToCityId { get; set; } = "";
     public string TruckName { get; set; } = "";
+    public int TrailerCount { get; set; }
 
+    /// <summary>Дистанция заказа по данным игры (если игра её не дала — по одометру).</summary>
+    public double DistanceKm => JobDistanceKm > 0 ? JobDistanceKm : DrivenKm;
     /// <summary>Дистанция заказа по данным игры.</summary>
     public double JobDistanceKm { get; set; }
     /// <summary>Реально проехано по одометру (включая порожний перегон к грузу).</summary>
@@ -96,6 +113,8 @@ public sealed class TripResult
     public long Revenue { get; set; }
     public int EarnedXp { get; set; }
     public double CargoDamage { get; set; }          // 0..1
+    public double TruckDamage { get; set; }          // 0..1, прирост износа за рейс
+    public double TrailerDamage { get; set; }        // 0..1, прирост износа за рейс
     public bool AutoParked { get; set; }
 
     public int FinesCount { get; set; }
@@ -108,4 +127,8 @@ public sealed class TripResult
     public int Score { get; set; }
     public string Grade { get; set; } = "";
     public List<ScoreLine> Breakdown { get; set; } = new();
+
+    /// <summary>Зарплата по ставкам компании, €.</summary>
+    public double Salary { get; set; }
+    public List<ScoreLine> SalaryBreakdown { get; set; } = new();
 }

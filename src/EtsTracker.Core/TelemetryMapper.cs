@@ -15,6 +15,10 @@ public static class TelemetryMapper
         var truck = t.TruckValues.ConstantsValues;
 
         var delivered = gp.JobDelivered;
+        var wear = t.TruckValues.CurrentValues.DamageValues;
+        var trailers = (t.TrailerValues ?? Array.Empty<SCSTelemetry.Trailer>())
+            .Where(x => x is { Attached: true })
+            .ToList();
 
         return new TelemetryFrame
         {
@@ -34,8 +38,10 @@ public static class TelemetryMapper
             CargoDamage = cargo.CargoDamage,
             SpecialJob = job.SpecialJob,
             SourceCity = job.CitySource ?? "",
+            SourceCityId = job.CitySourceId ?? "",
             SourceCompany = job.CompanySource ?? "",
             DestinationCity = job.CityDestination ?? "",
+            DestinationCityId = job.CityDestinationId ?? "",
             DestinationCompany = job.CompanyDestination ?? "",
             PlannedIncome = job.Income,
             PlannedDistanceKm = job.PlannedDistanceKm,
@@ -45,6 +51,11 @@ public static class TelemetryMapper
             FuelLiters = dash.FuelValue.Amount,
             SpeedKph = Math.Abs(dash.Speed.Kph),
             SpeedLimitKph = t.NavigationValues.SpeedLimit.Kph,
+            TruckWear = new[] { wear.Engine, wear.Transmission, wear.Cabin, wear.Chassis, wear.WheelsAvg }.Max(),
+
+            TrailerCount = trailers.Count,
+            TrailerWear = trailers.Count == 0 ? 0 : trailers
+                .Max(x => Math.Max(x.DamageValues.Body, Math.Max(x.DamageValues.Chassis, x.DamageValues.Wheels))),
 
             Delivered = new DeliveredInfo(
                 delivered.Revenue,
