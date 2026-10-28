@@ -224,7 +224,7 @@ public sealed class CompanySettings
 ///
 ///   зарплата = стоимость груза (доход в игре)
 ///            + км × ставка за км (по дальности рейса)
-///            + надбавка за класс груза (по рангу)
+///            + надбавка за класс груза (по рангу; для ADR, тяжёлых и сочленённых — при наличии допуска)
 ///            + 15% стоимости груза, если рейс в город гаража или из него
 ///            + 4% стоимости груза за 5-й и следующие рейсы за сутки
 /// </summary>
@@ -235,8 +235,9 @@ public sealed class PayCalculator
     public PayCalculator(CompanySettings company) => _c = company;
 
     /// <param name="tripsEarlierToday">Сколько доставленных рейсов у водителя уже было в этот день.</param>
-    public void Apply(TripResult trip, DriverRank rank, int tripsEarlierToday)
+    public void Apply(TripResult trip, Driver driver, int tripsEarlierToday)
     {
+        var rank = driver.Rank;
         var lines = new List<ScoreLine>();
         if (trip.Status != TripStatus.Delivered)
         {
@@ -254,7 +255,9 @@ public sealed class PayCalculator
 
         if (_c.ClassBonus.TryGetValue(rank, out var bonuses) && bonuses.TryGetValue(trip.CargoClass, out var bonus))
         {
-            if (_c.RankMassLimitTonnes.TryGetValue(rank, out var limit) && trip.CargoMassT > limit)
+            if (MissingPermit(driver, trip.CargoClass) is { } permit)
+                lines.Add(new($"Надбавка: нет допуска «{permit}»", 0));
+            else if (_c.RankMassLimitTonnes.TryGetValue(rank, out var limit) && trip.CargoMassT > limit)
                 lines.Add(new($"Надбавка: груз тяжелее {limit:0} т — не положена", 0));
             else
                 lines.Add(new($"Надбавка: {Names.Of(trip.CargoClass)}, {Names.Of(rank)}", bonus));
@@ -274,4 +277,13 @@ public sealed class PayCalculator
         trip.SalaryBreakdown = lines;
         trip.Salary = Math.Round(lines.Sum(l => l.Points), 2);
     }
+
+    /// <summary>Какого допуска не хватает водителю для этого класса груза (null — всё в порядке).</summary>
+    public static string? MissingPermit(Driver d, CargoClass c) => c switch
+    {
+        CargoClass.Adr when !d.PermitAdr => "ADR",
+        CargoClass.Heavy or CargoClass.HeavyHaul when !d.PermitHeavy => "Тяжёлые",
+        CargoClass.Articulated when !d.PermitArticulated => "Сочленённые",
+        _ => null,
+    };
 }

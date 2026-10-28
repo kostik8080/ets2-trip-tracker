@@ -243,6 +243,15 @@ public sealed class TripRepository
         cmd.ExecuteNonQuery();
     }
 
+    public void DeleteTrip(long id)
+    {
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "DELETE FROM trips WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.ExecuteNonQuery();
+    }
+
     /// <summary>Сколько доставленных рейсов у водителя было в тот же день раньше указанного момента.</summary>
     public int CountDeliveredSameDayBefore(long? driverId, DateTime finishedAt, long exceptTripId = 0)
     {

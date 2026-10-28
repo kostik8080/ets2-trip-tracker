@@ -1,0 +1,47 @@
+<Window x:Class="EtsTracker.App.DriverEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Водитель" Width="420" SizeToContent="Height"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <StackPanel Margin="20">
+        <TextBlock x:Name="HeaderText" Text="Регистрация водителя" FontSize="18" FontWeight="SemiBold"/>
+
+        <TextBlock Text="Никнейм" Style="{StaticResource FieldLabel}"/>
+        <TextBox x:Name="NicknameBox" MaxLength="40"/>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="Рег. номер" Style="{StaticResource FieldLabel}"/>
+                <TextBox x:Name="RegNumberBox" MaxLength="10"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Грузовик" Style="{StaticResource FieldLabel}"/>
+                <ComboBox x:Name="TruckBox" IsEditable="True"/>
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Ранг" Style="{StaticResource FieldLabel}"/>
+        <ComboBox x:Name="RankBox" DisplayMemberPath="Name" SelectedValuePath="Value"/>
+
+        <TextBlock Text="Допуски" Style="{StaticResource FieldLabel}"/>
+        <WrapPanel>
+            <CheckBox x:Name="AdrBox" Content="ADR" Margin="0,0,18,0"/>
+            <CheckBox x:Name="HeavyBox" Content="Тяжёлые" Margin="0,0,18,0"/>
+            <CheckBox x:Name="ArticulatedBox" Content="Сочленённые"/>
+        </WrapPanel>
+
+        <TextBlock x:Name="ErrorText" Foreground="{StaticResource BadBrush}" Margin="0,12,0,0"
+                   TextWrapping="Wrap" Visibility="Collapsed"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Отмена" IsCancel="True"/>
+            <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" IsDefault="True"
+                    Click="OnSave" Margin="0"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

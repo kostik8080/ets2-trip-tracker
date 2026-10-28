@@ -36,6 +36,16 @@ public sealed class CareerService
         _repo.UpdateClassification(trip);
     }
 
+    /// <summary>
+    /// Начисляет зарплату рейсам, записанным до регистрации водителя
+    /// (у них ещё нет расшифровки зарплаты). Класс груза при этом определяется заново.
+    /// </summary>
+    public void PayUnpaidTrips(Driver driver)
+    {
+        foreach (var trip in _repo.GetTrips(driver.Id).Where(t => t.SalaryBreakdown.Count == 0).OrderBy(t => t.FinishedAt))
+            Reclassify(trip, driver, trip.Kind, Company.DetectClass(trip));
+    }
+
     private void ApplyPay(TripResult trip, Driver? driver)
     {
         if (driver == null)
@@ -45,7 +55,7 @@ public sealed class CareerService
             return;
         }
         int earlier = _repo.CountDeliveredSameDayBefore(driver.Id, trip.FinishedAt, trip.Id);
-        _pay.Apply(trip, driver.Rank, earlier);
+        _pay.Apply(trip, driver, earlier);
     }
 }
 
