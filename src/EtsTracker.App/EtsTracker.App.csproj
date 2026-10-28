@@ -10,7 +10,14 @@
     <RootNamespace>EtsTracker.App</RootNamespace>
     <!-- Чтобы при сборке в один .exe туда попала и нативная библиотека SQLite -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\logo.png" />
+    <!-- Значок окон: PNG, потому что на этой .ico WPF зависает при открытии окна -->
+    <Resource Include="Assets\icon.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\EtsTracker.Core\EtsTracker.Core.csproj" />

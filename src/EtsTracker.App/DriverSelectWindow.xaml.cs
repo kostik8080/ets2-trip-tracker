@@ -12,7 +12,9 @@ public partial class DriverSelectWindow : Window
     {
         InitializeComponent();
         _services = services;
-        CompanyText.Text = $"ВТК {services.Company.CompanyName}";
+        CompanyText.Text = services.Company.CompanyName;
+        LogoImage.Source = services.LoadLogo();
+        Title = $"{services.Company.CompanyName} — выбор водителя";
         Load(selectId ?? services.State.LastDriverId);
     }
 

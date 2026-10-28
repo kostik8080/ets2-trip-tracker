@@ -21,7 +21,6 @@ public partial class MainWindow : Window
         _s = services;
         _driver = driver;
 
-        CompanyText.Text = $"ВТК {_s.Company.CompanyName}";
         NoticesList.ItemsSource = _notices;
         KindBox.ItemsSource = Choices.TripKinds;
         ClassBox.ItemsSource = Choices.CargoClasses;
@@ -38,9 +37,24 @@ public partial class MainWindow : Window
         _timer.Start();
         Closed += (_, _) => _timer.Stop();
 
-        ShowDriver();
+        ShowCompany();
         Reload();
         UpdateLive();
+    }
+
+    // ───────────────────────────── Компания ─────────────────────────────
+
+    private void ShowCompany()
+    {
+        CompanyText.Text = _s.Company.CompanyName;
+        LogoImage.Source = _s.LoadLogo();
+        ShowDriver();
+    }
+
+    private void OnEditCompany(object sender, RoutedEventArgs e)
+    {
+        if (new CompanyWindow(_s) { Owner = this }.ShowDialog() == true)
+            ShowCompany();
     }
 
     // ───────────────────────────── Водитель ─────────────────────────────
@@ -52,7 +66,7 @@ public partial class MainWindow : Window
         DriverInfoText.Text = string.IsNullOrEmpty(_driver.Truck)
             ? Names.Of(_driver.Rank)
             : $"{Names.Of(_driver.Rank)} · {_driver.Truck}";
-        Title = $"ВТК {_s.Company.CompanyName} — {_driver.Nickname}";
+        Title = $"{_s.Company.CompanyName} — {_driver.Nickname}";
     }
 
     private void OnEditProfile(object sender, RoutedEventArgs e)

@@ -104,7 +104,11 @@ public sealed class RankRequirement
 /// </summary>
 public sealed class CompanySettings
 {
-    public string CompanyName { get; set; } = "VIM TRUCK";
+    /// <summary>Название компании в шапке окна. Меняется в окне «Компания».</summary>
+    public string CompanyName { get; set; } = "ВТК-ПЭК";
+
+    /// <summary>Файл логотипа в папке data; пусто — встроенный логотип.</summary>
+    public string LogoFile { get; set; } = "";
 
     /// <summary>€ за 1 км с грузом, зависит от дальности рейса.</summary>
     public List<DistanceRate> DistanceRates { get; set; } = new()

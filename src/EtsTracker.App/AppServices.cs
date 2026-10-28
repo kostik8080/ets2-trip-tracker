@@ -1,4 +1,6 @@
 using System.IO;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using SCSSdkClient;
 
 namespace EtsTracker.App;
@@ -55,6 +57,47 @@ public sealed class AppServices : IDisposable
 
     /// <summary>Отдельный трекер для демо-рейса, чтобы он не смешивался с данными игры.</summary>
     public TripTracker CreateDemoTracker() => new(Catalog, Scoring);
+
+    /// <summary>Логотип компании: свой файл из data или встроенный.</summary>
+    public ImageSource LoadLogo()
+    {
+        var file = string.IsNullOrEmpty(Company.LogoFile) ? null : Path.Combine(DataDir, Company.LogoFile);
+        if (file != null && File.Exists(file))
+        {
+            try { return LoadImage(new Uri(file)); }
+            catch (Exception) { /* битая картинка — показываем встроенную */ }
+        }
+        return LoadImage(new Uri("pack://application:,,,/Assets/logo.png"));
+    }
+
+    private static BitmapImage LoadImage(Uri uri)
+    {
+        // OnLoad — чтобы файл не оставался открытым и его можно было заменить
+        var img = new BitmapImage();
+        img.BeginInit();
+        img.CacheOption = BitmapCacheOption.OnLoad;
+        img.UriSource = uri;
+        img.EndInit();
+        img.Freeze();
+        return img;
+    }
+
+    /// <summary>Сохраняет название и логотип. Новый логотип копируется в data, чтобы не зависеть от исходного файла.</summary>
+    public void SaveCompanyLook(string name, string? newLogoPath, bool resetLogo)
+    {
+        Company.CompanyName = name;
+        if (resetLogo)
+        {
+            Company.LogoFile = "";
+        }
+        else if (newLogoPath != null)
+        {
+            var fileName = "logo" + Path.GetExtension(newLogoPath).ToLowerInvariant();
+            File.Copy(newLogoPath, Path.Combine(DataDir, fileName), overwrite: true);
+            Company.LogoFile = fileName;
+        }
+        ConfigStore.Save(Path.Combine(DataDir, "company.json"), Company);
+    }
 
     public void RememberDriver(Driver d)
     {

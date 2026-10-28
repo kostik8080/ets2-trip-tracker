@@ -100,6 +100,9 @@ public static class ConfigStore
         Converters = { new JsonStringEnumConverter() },
     };
 
+    public static void Save<T>(string path, T value)
+        => File.WriteAllText(path, JsonSerializer.Serialize(value, Json));
+
     /// <summary>Загружает JSON; если файла нет — создаёт его со значениями по умолчанию.</summary>
     public static T LoadOrCreate<T>(string path) where T : new()
     {

@@ -5,10 +5,14 @@
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
     <DockPanel>
         <Border DockPanel.Dock="Top" Background="{StaticResource HeaderBrush}" Padding="20,16">
-            <StackPanel>
-                <TextBlock x:Name="CompanyText" Text="ВТК" Foreground="{StaticResource AccentBrush}"
-                           FontSize="20" FontWeight="Bold"/>
-                <TextBlock Text="Кто сегодня за рулём?" Foreground="#D1D5DB" Margin="0,2,0,0"/>
+            <StackPanel Orientation="Horizontal">
+                <Border Width="58" Height="58" Background="White" CornerRadius="8" Padding="3" Margin="0,0,14,0">
+                    <Image x:Name="LogoImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="CompanyText" Foreground="White" FontSize="24" FontWeight="Bold" FontFamily="Georgia"/>
+                    <TextBlock Text="Кто сегодня за рулём?" Foreground="{StaticResource HeaderMutedBrush}" Margin="0,2,0,0"/>
+                </StackPanel>
             </StackPanel>
         </Border>
 
@@ -30,7 +34,7 @@
                             </Grid.ColumnDefinitions>
                             <Border Width="38" Height="38" CornerRadius="19" Background="{StaticResource AccentBrush}"
                                     HorizontalAlignment="Left">
-                                <TextBlock Text="{Binding RegNumber}" FontWeight="Bold" FontSize="14"
+                                <TextBlock Text="{Binding RegNumber}" FontWeight="Bold" FontSize="14" Foreground="White"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">

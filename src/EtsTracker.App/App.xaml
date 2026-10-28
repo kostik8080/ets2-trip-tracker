@@ -18,25 +18,28 @@
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="#E5E7EB"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#9CA3AF"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#9CA3AF"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FCD34D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#C9D3F0"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#111827"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#FEF3C7"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#E3E9F8"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#111827"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#111827"/>
 
-        <!-- Палитра: светлый фон, тёмная шапка, янтарный акцент -->
-        <SolidColorBrush x:Key="PageBrush" Color="#F3F4F6"/>
+        <!-- Палитра в цветах логотипа ПЭК: белый фон, фирменный синий -->
+        <SolidColorBrush x:Key="PageBrush" Color="#F2F4F9"/>
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="BorderBrush" Color="#E5E7EB"/>
-        <SolidColorBrush x:Key="HeaderBrush" Color="#1F2937"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#F59E0B"/>
-        <SolidColorBrush x:Key="AccentDarkBrush" Color="#B45309"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#DFE4F0"/>
+        <SolidColorBrush x:Key="HeaderBrush" Color="#31479D"/>
+        <SolidColorBrush x:Key="HeaderMutedBrush" Color="#C9D3F0"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#31479D"/>
+        <SolidColorBrush x:Key="AccentDarkBrush" Color="#23357A"/>
+        <SolidColorBrush x:Key="AccentLightBrush" Color="#E3E9F8"/>
         <SolidColorBrush x:Key="TextBrush" Color="#111827"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#6B7280"/>
         <SolidColorBrush x:Key="GoodBrush" Color="#059669"/>
         <SolidColorBrush x:Key="BadBrush" Color="#DC2626"/>
-        <SolidColorBrush x:Key="ChartBlueBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="ChartBlueBrush" Color="#31479D"/>
+        <SolidColorBrush x:Key="ChartLightBrush" Color="#6F86D6"/>
 
         <!-- Неявный стиль Window не действует на окна-наследники, поэтому ключ указан в каждом окне -->
         <Style x:Key="AppWindow" TargetType="Window">
@@ -44,6 +47,7 @@
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Icon" Value="pack://application:,,,/Assets/icon.png"/>
         </Style>
 
         <Style x:Key="Card" TargetType="Border">
@@ -72,10 +76,56 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <!-- Синяя кнопка: свой шаблон, иначе стандартная подсветка при наведении спорит с белым текстом -->
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource AccentDarkBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1A2860"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#A7B3D9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Кнопка на синей шапке: прозрачная с белой рамкой -->
+        <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4"
+                                BorderBrush="#8FA2DD" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3F57B0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentDarkBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
@@ -103,7 +153,7 @@
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="Background" Value="{StaticResource CardBrush}"/>
             <Setter Property="RowBackground" Value="{StaticResource CardBrush}"/>
-            <Setter Property="AlternatingRowBackground" Value="#F9FAFB"/>
+            <Setter Property="AlternatingRowBackground" Value="#F8F9FD"/>
             <Setter Property="SelectionMode" Value="Single"/>
             <Setter Property="CanUserAddRows" Value="False"/>
             <Setter Property="RowHeight" Value="26"/>
@@ -132,7 +182,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#FEF3C7"/>
+                    <Setter Property="Background" Value="{StaticResource AccentLightBrush}"/>
                     <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
                 </Trigger>
             </Style.Triggers>

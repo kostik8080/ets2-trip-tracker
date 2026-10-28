@@ -133,6 +133,5 @@ public sealed class AppState
 
     public static string PathIn(string dataDir) => Path.Combine(dataDir, "app.json");
 
-    public void Save(string dataDir)
-        => File.WriteAllText(PathIn(dataDir), System.Text.Json.JsonSerializer.Serialize(this, ConfigStore.Json));
+    public void Save(string dataDir) => ConfigStore.Save(PathIn(dataDir), this);
 }
