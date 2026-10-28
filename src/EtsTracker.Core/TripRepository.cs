@@ -69,6 +69,7 @@ public sealed class TripRepository
         AddColumnIfMissing(c, "trips", "salary", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "trips", "salary_json", "TEXT NOT NULL DEFAULT '[]'");
         AddColumnIfMissing(c, "drivers", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(c, "drivers", "pin_hash", "TEXT NOT NULL DEFAULT ''");
         EnsureAdmin(c);
     }
 
@@ -87,7 +88,7 @@ public sealed class TripRepository
         using var c = Open();
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
-            SELECT id, nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, created_at, is_admin
+            SELECT id, nickname, reg_number, truck, rank, permit_adr, permit_heavy, permit_articulated, created_at, is_admin, pin_hash <> ''
             FROM drivers ORDER BY reg_number, nickname;
             """;
         using var r = cmd.ExecuteReader();
@@ -106,6 +107,7 @@ public sealed class TripRepository
                 PermitArticulated = r.GetBoolean(7),
                 CreatedAt = ParseDate(r.GetString(8)),
                 IsAdmin = r.GetBoolean(9),
+                HasPin = r.GetBoolean(10),
             });
         }
         return list;
@@ -155,6 +157,26 @@ public sealed class TripRepository
         d.IsAdmin = (long)check.ExecuteScalar()! == 1;
     }
 
+    /// <summary>Задаёт PIN водителя; null — сбрасывает (при следующем входе водитель задаст новый).</summary>
+    public void SetPin(long driverId, string? pin)
+    {
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "UPDATE drivers SET pin_hash = $hash WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$hash", pin == null ? "" : Pin.Hash(pin));
+        cmd.Parameters.AddWithValue("$id", driverId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public bool CheckPin(long driverId, string pin)
+    {
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "SELECT pin_hash FROM drivers WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$id", driverId);
+        return cmd.ExecuteScalar() is string stored && stored.Length > 0 && Pin.Verify(pin, stored);
+    }
+
     /// <summary>Сколько администраторов, не считая указанного водителя.</summary>
     public int OtherAdminsCount(long exceptId)
     {
@@ -171,7 +193,8 @@ public sealed class TripRepository
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
             UPDATE drivers SET nickname = $nick, reg_number = $reg, truck = $truck, rank = $rank,
-                permit_adr = $adr, permit_heavy = $heavy, permit_articulated = $art, is_admin = $admin
+                permit_adr = $adr, permit_heavy = $heavy, permit_articulated = $art, is_admin = $admin,
+                pin_hash = CASE WHEN $admin THEN pin_hash ELSE '' END
             WHERE id = $id;
             """;
         AddDriverParams(cmd, d);

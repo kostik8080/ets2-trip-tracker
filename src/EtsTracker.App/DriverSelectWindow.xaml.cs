@@ -42,6 +42,7 @@ public partial class DriverSelectWindow : Window
     private void OnEnter(object sender, RoutedEventArgs e)
     {
         if (DriversList.SelectedItem is not DriverRow row) return;
+        if (!PinWindow.Authorize(this, _services, row.Driver)) return;
         Chosen = row.Driver;
         _services.RememberDriver(row.Driver);
         DialogResult = true;

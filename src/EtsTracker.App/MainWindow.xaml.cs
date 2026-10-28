@@ -92,7 +92,7 @@ public partial class MainWindow : Window
     private void OnManageDrivers(object sender, RoutedEventArgs e)
     {
         if (!_driver.IsAdmin) return;
-        var window = new DriversWindow(_s) { Owner = this };
+        var window = new DriversWindow(_s, _driver.Id) { Owner = this };
         window.ShowDialog();
         if (!window.Changed) return;
         // Текущего водителя могли изменить (ранг, роль) — перечитываем его из базы

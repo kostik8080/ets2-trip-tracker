@@ -48,6 +48,8 @@ public sealed class Driver
     public bool PermitArticulated { get; set; }
     /// <summary>Администратор компании: меняет ранги и допуски, правит рейсы, назначает других администраторов.</summary>
     public bool IsAdmin { get; set; }
+    /// <summary>Задан ли PIN для входа (сам PIN в модель не загружается).</summary>
+    public bool HasPin { get; set; }
     public DateTime CreatedAt { get; set; }
 
     public override string ToString() => Nickname;
