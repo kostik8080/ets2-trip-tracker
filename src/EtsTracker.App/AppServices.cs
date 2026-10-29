@@ -37,7 +37,8 @@ public sealed class AppServices : IDisposable
         Overlay = ConfigStore.LoadOrCreate<OverlaySettings>(Path.Combine(DataDir, "overlay.json"));
         Repo = new TripRepository(Path.Combine(DataDir, "trips.db"));
         Career = new CareerService(Repo, Company);
-        Tracker = new TripTracker(Catalog, Scoring);
+        // Незавершённый рейс переживает перезапуск трекера
+        Tracker = new TripTracker(Catalog, Scoring, Path.Combine(DataDir, "active_trip.json"));
     }
 
     /// <summary>Подключается к плагину телеметрии. Игра может быть ещё не запущена — это нормально.</summary>
@@ -109,5 +110,9 @@ public sealed class AppServices : IDisposable
         State.Save(DataDir);
     }
 
-    public void Dispose() => _telemetry?.Dispose();
+    public void Dispose()
+    {
+        Tracker.SaveNow(); // чтобы незавершённый рейс продолжился при следующем запуске
+        _telemetry?.Dispose();
+    }
 }

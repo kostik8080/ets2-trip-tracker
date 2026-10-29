@@ -42,7 +42,8 @@ var catalog = ConfigStore.LoadOrCreate<CargoCatalog>(Path.Combine(dataDir, "carg
 var company = ConfigStore.LoadOrCreate<CompanySettings>(Path.Combine(dataDir, "company.json"));
 var repo = new TripRepository(Path.Combine(dataDir, "trips.db"));
 var career = new CareerService(repo, company);
-var tracker = new TripTracker(catalog, settings);
+var tracker = new TripTracker(catalog, settings,
+    args.Contains("--demo") ? null : Path.Combine(dataDir, "active_trip.json"));
 var ui = new ConsoleUi();
 
 // Рейсы пишутся водителю, который последним был выбран в окне трекера
@@ -99,4 +100,6 @@ Console.CancelKeyPress += (_, e) => { e.Cancel = true; exit.Set(); };
 while (!exit.Wait(TimeSpan.FromSeconds(1)))
     ui.UpdateStatus(tracker);
 
+tracker.SaveNow();
+if (tracker.Current != null) ui.Print("\n💾 Незавершённый рейс сохранён — продолжится при следующем запуске.");
 ui.Print("\nДо встречи на дорогах! 👋");
