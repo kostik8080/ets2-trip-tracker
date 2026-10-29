@@ -292,8 +292,8 @@ public partial class MainWindow : Window
             ProgressStage.Text = "🚚 Везём груз";
             ProgressPercent.Text = t.Progress.ToString("P0");
             TripBar.Value = t.Progress * 100;
-            RemainingText.Text = t.PlannedDistanceKm > 0
-                ? $"осталось {t.RemainingKm:N0} км из {t.PlannedDistanceKm:N0}"
+            RemainingText.Text = t.TotalKm > 0
+                ? $"осталось {t.RemainingKm:N0} км из {t.TotalKm:N0}"
                 : $"осталось {t.RemainingKm:N0} км";
         }
 

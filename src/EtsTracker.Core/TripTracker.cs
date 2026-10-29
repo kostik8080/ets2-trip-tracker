@@ -192,16 +192,26 @@ public sealed class ActiveTrip
     public double? NavEtaSec { get; private set; }
     public int? DeadlineMinutesLeft { get; private set; }
 
+    /// <summary>Самый большой остаток по навигатору с момента погрузки.</summary>
+    private double _navMaxLoadedKm;
+
     /// <summary>Сколько осталось до финиша, км: по навигатору или по плану заказа минус проеханное с грузом.</summary>
     public double RemainingKm => NavRemainingKm ?? Math.Max(0, PlannedDistanceKm - LoadedKm);
+
+    /// <summary>
+    /// Полная длина пути с грузом. Дистанция заказа от игры не включает паромы, а навигатор
+    /// их считает (Неаполь → Дуррес: 228 км по заказу, 327 км по навигатору), поэтому берём большее
+    /// из: дистанции заказа, наибольшего остатка по навигатору и «проехано с грузом + осталось».
+    /// </summary>
+    public double TotalKm => Math.Max(Math.Max(PlannedDistanceKm, _navMaxLoadedKm), LoadedKm + RemainingKm);
 
     /// <summary>Доля пройденного пути с грузом, 0..1 (пока едем за грузом — 0).</summary>
     public double Progress
     {
         get
         {
-            if (!CargoLoaded || PlannedDistanceKm == 0) return 0;
-            return Math.Clamp(1 - RemainingKm / PlannedDistanceKm, 0, 1);
+            if (!CargoLoaded || TotalKm <= 0) return 0;
+            return Math.Clamp(1 - RemainingKm / TotalKm, 0, 1);
         }
     }
 
@@ -229,6 +239,7 @@ public sealed class ActiveTrip
 
         CargoLoaded = f.CargoLoaded;
         NavRemainingKm = f.NavDistanceKm > 0.05 ? f.NavDistanceKm : null;
+        if (f.CargoLoaded && NavRemainingKm is { } nav) _navMaxLoadedKm = Math.Max(_navMaxLoadedKm, nav);
         NavEtaSec = f.NavTimeSec > 0 ? f.NavTimeSec : null;
         DeadlineMinutesLeft = f.HasDeadline ? f.DeadlineMinutesLeft : null;
 

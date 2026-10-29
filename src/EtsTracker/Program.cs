@@ -18,8 +18,12 @@ if (args.Contains("--diag"))
             $"Scale={d.CommonValues.Scale} DeliveryTime={d.JobValues.DeliveryTime.Value} " +
             $"RemainingDeliveryTime={d.JobValues.RemainingDeliveryTime.Value} " +
             $"NavDistance={d.NavigationValues.NavigationDistance:0}m NavTime={d.NavigationValues.NavigationTime:0}s " +
-            $"Market={d.JobValues.Market} OnJob={d.SpecialEventsValues.OnJob} CargoLoaded={d.JobValues.CargoLoaded}");
+            $"Market={d.JobValues.Market} OnJob={d.SpecialEventsValues.OnJob} CargoLoaded={d.JobValues.CargoLoaded} " +
+            $"PlannedDistanceKm={d.JobValues.PlannedDistanceKm} Income={d.JobValues.Income}");
         var f = TelemetryMapper.Map(d);
+        var probe = ActiveTrip.Begin(f, midJob: true);
+        probe.Update(f, null, new ScoreSettings());
+        Console.WriteLine($"  → шкала: осталось {probe.RemainingKm:0} км из {probe.TotalKm:0}, {probe.Progress:P0}");
         Console.WriteLine(
             $"  → трекер: срок {(f.HasDeadline ? $"{f.DeadlineMinutesLeft} игр. мин" : "не передан игрой")}, " +
             $"в пути {f.NavTimeSec / 60:0} игр. мин ≈ {f.NavTimeSec / 60 / 19:0} реальных мин");
