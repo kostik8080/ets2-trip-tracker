@@ -12,8 +12,6 @@ public sealed record TelemetryFrame
     public ulong TimestampUs { get; init; }
     /// <summary>Игровые часы: минуты от начала игры (день недели и время суток в игре).</summary>
     public uint GameTimeMinutes { get; init; }
-    /// <summary>Во сколько раз игровое время быстрее реального (в ETS2 обычно 19); 0 — неизвестно.</summary>
-    public float TimeScale { get; init; }
 
     // Флаги событий (поднимаются игрой на короткое время)
     public bool OnJob { get; init; }

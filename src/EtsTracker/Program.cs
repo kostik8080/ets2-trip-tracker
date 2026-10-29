@@ -4,6 +4,31 @@ using SCSSdkClient;
 
 Console.OutputEncoding = Encoding.UTF8;
 
+// --diag: печатает сырые значения времени и навигации из телеметрии (ничего не записывает)
+if (args.Contains("--diag"))
+{
+    using var diag = new SCSSdkTelemetry();
+    var printed = 0;
+    var done = new ManualResetEventSlim();
+    diag.Data += (d, _) =>
+    {
+        if (!d.SdkActive || Interlocked.Increment(ref printed) > 3) { if (printed > 3) done.Set(); return; }
+        Console.WriteLine(
+            $"GameTime={d.CommonValues.GameTime.Value} ({d.CommonValues.GameTime.Date:ddd HH:mm}) " +
+            $"Scale={d.CommonValues.Scale} DeliveryTime={d.JobValues.DeliveryTime.Value} " +
+            $"RemainingDeliveryTime={d.JobValues.RemainingDeliveryTime.Value} " +
+            $"NavDistance={d.NavigationValues.NavigationDistance:0}m NavTime={d.NavigationValues.NavigationTime:0}s " +
+            $"Market={d.JobValues.Market} OnJob={d.SpecialEventsValues.OnJob} CargoLoaded={d.JobValues.CargoLoaded}");
+        var f = TelemetryMapper.Map(d);
+        Console.WriteLine(
+            $"  → трекер: срок {(f.HasDeadline ? $"{f.DeadlineMinutesLeft} игр. мин" : "не передан игрой")}, " +
+            $"в пути {f.NavTimeSec / 60:0} игр. мин ≈ {f.NavTimeSec / 60 / 19:0} реальных мин");
+        Thread.Sleep(1000);
+    };
+    if (!done.Wait(TimeSpan.FromSeconds(15))) Console.WriteLine("Нет данных: игра не запущена или плагин не загружен.");
+    return;
+}
+
 // --- Файлы данных лежат рядом с программой, в папке data ---
 var dataDir = Path.Combine(AppContext.BaseDirectory, "data");
 Directory.CreateDirectory(dataDir);

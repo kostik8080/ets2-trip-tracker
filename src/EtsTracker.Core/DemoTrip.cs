@@ -35,7 +35,6 @@ public static class DemoTrip
             TrailerWear = 0.01f,
             CargoLoaded = true,
             HasDeadline = true,
-            TimeScale = 19,
             GameTimeMinutes = 8 * 60, // понедельник, 08:00 по игровым часам
         };
 

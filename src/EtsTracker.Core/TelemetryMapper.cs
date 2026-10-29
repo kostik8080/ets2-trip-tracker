@@ -5,6 +5,13 @@ namespace EtsTracker;
 /// <summary>Переводит объект SDK в наш TelemetryFrame.</summary>
 public static class TelemetryMapper
 {
+    /// <summary>
+    /// Срок доставки известен не всегда: для внешних контрактов (external_contracts) и заказов
+    /// без срока игра передаёт «пусто» — 0 или uint.MaxValue. Тогда срок не показываем.
+    /// </summary>
+    private static bool HasDeadline(uint deliveryTime, uint gameTime)
+        => deliveryTime > 0 && deliveryTime != uint.MaxValue && gameTime > 0;
+
     public static TelemetryFrame Map(SCSTelemetry t)
     {
         var job = t.JobValues;
@@ -26,7 +33,6 @@ public static class TelemetryMapper
             Paused = t.Paused,
             TimestampUs = t.Timestamp,
             GameTimeMinutes = t.CommonValues.GameTime.Value,
-            TimeScale = t.CommonValues.Scale,
 
             OnJob = events.OnJob,
             JobDeliveredFlag = events.JobDelivered,
@@ -48,8 +54,8 @@ public static class TelemetryMapper
             PlannedIncome = job.Income,
             PlannedDistanceKm = job.PlannedDistanceKm,
             CargoLoaded = job.CargoLoaded,
-            HasDeadline = job.DeliveryTime.Value > 0,
-            DeadlineMinutesLeft = job.RemainingDeliveryTime.Value,
+            HasDeadline = HasDeadline(job.DeliveryTime.Value, t.CommonValues.GameTime.Value),
+            DeadlineMinutesLeft = (int)((long)job.DeliveryTime.Value - t.CommonValues.GameTime.Value),
             NavDistanceKm = t.NavigationValues.NavigationDistance / 1000f,
             NavTimeSec = t.NavigationValues.NavigationTime,
 

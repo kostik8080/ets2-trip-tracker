@@ -137,7 +137,7 @@ public partial class OverlayWindow : Window
     /// <summary>Пример данных, чтобы настроить вид без запущенной игры.</summary>
     private void FillSample()
     {
-        var time = new TimeView(_s.Overlay.TimeMode, new TelemetryFrame { GameTimeMinutes = 14 * 60 + 35, TimeScale = 19 });
+        var time = new TimeView(_s.Overlay.TimeMode, new TelemetryFrame { GameTimeMinutes = 14 * 60 + 35 });
         ClockText.Text = $"🕒 {time.Clock()}";
         SetSpeed(85, 80);
         TripPanel.Visibility = Visibility.Visible;

@@ -24,18 +24,20 @@ public sealed class OverlaySettings
 
 /// <summary>
 /// Показ времени в реальном или игровом исчислении.
-/// Игра отдаёт время в пути и срок доставки в игровых минутах; реальное = игровое / масштаб.
+/// Игра отдаёт время в пути и срок доставки в игровых минутах; реальное = игровое / 19.
+/// Текущий масштаб из телеметрии не годится: в городах он 3, на трассе 19, а маршрут идёт через всё.
 /// </summary>
 public sealed class TimeView
 {
+    /// <summary>Во сколько раз игровое время в ETS2 быстрее реального на трассе.</summary>
+    public const double GameTimeScale = 19;
+
     private readonly TimeMode _mode;
-    private readonly double _scale;
     private readonly uint _gameNow;
 
     public TimeView(TimeMode mode, TelemetryFrame? f)
     {
         _mode = mode;
-        _scale = f?.TimeScale > 0.5 ? f.TimeScale : 19; // в ETS2 игровое время идёт ~в 19 раз быстрее
         _gameNow = f?.GameTimeMinutes ?? 0;
     }
 
@@ -46,11 +48,11 @@ public sealed class TimeView
     public string Clock() => IsReal ? DateTime.Now.ToString("HH:mm") : GameClock(_gameNow);
 
     /// <summary>Длительность, заданная в игровых минутах, — в выбранном времени.</summary>
-    public string Duration(double gameMinutes) => Format(IsReal ? gameMinutes / _scale : gameMinutes);
+    public string Duration(double gameMinutes) => Format(IsReal ? gameMinutes / GameTimeScale : gameMinutes);
 
     /// <summary>Когда закончится промежуток в игровых минутах — по выбранным часам.</summary>
     public string ClockAfter(double gameMinutes)
-        => IsReal ? DateTime.Now.AddMinutes(gameMinutes / _scale).ToString("HH:mm")
+        => IsReal ? DateTime.Now.AddMinutes(gameMinutes / GameTimeScale).ToString("HH:mm")
                   : GameClock(_gameNow + (uint)Math.Max(0, gameMinutes));
 
     private static string GameClock(uint minutes)
