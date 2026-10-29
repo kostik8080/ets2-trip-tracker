@@ -35,6 +35,8 @@ public static class DemoTrip
             TrailerWear = 0.01f,
             CargoLoaded = true,
             HasDeadline = true,
+            TimeScale = 19,
+            GameTimeMinutes = 8 * 60, // понедельник, 08:00 по игровым часам
         };
 
         // Без заказа → заказ принят
@@ -72,6 +74,7 @@ public static class DemoTrip
                 FinedFlag = second is 9000 or 9001,
                 FineAmount = 250,
                 FineOffence = "Red_signal",
+                GameTimeMinutes = (uint)(8 * 60 + second / 60), // кадр демо = игровая секунда
                 NavDistanceKm = (float)Math.Max(0, distanceKm - km),
                 NavTimeSec = (float)(Math.Max(0, distanceKm - km) / cruiseKph * 3600),
                 // Срок в игровых минутах: из 9 часов к финишу остаётся около двух

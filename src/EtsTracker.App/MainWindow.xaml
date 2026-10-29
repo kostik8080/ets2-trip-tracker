@@ -47,6 +47,8 @@
                     </StackPanel>
                     <Button Content="Профиль" Click="OnEditProfile" Style="{StaticResource HeaderButton}"/>
                     <Button Content="Сменить водителя" Click="OnSwitchDriver" Style="{StaticResource HeaderButton}"/>
+                    <Button Content="Оверлей" Click="OnOverlaySettings" Style="{StaticResource HeaderButton}"
+                            ToolTip="Панель поверх игры: ход рейса, время, скорость"/>
                     <Button x:Name="DriversButton" Content="Водители" Click="OnManageDrivers" Style="{StaticResource HeaderButton}"
                             ToolTip="Ранги, допуски и роли всех водителей (для администратора)"/>
                     <Button x:Name="CompanyButton" Content="Компания" Click="OnEditCompany" Style="{StaticResource HeaderButton}" Margin="0"

@@ -25,6 +25,8 @@ public static class TelemetryMapper
             SdkActive = t.SdkActive,
             Paused = t.Paused,
             TimestampUs = t.Timestamp,
+            GameTimeMinutes = t.CommonValues.GameTime.Value,
+            TimeScale = t.CommonValues.Scale,
 
             OnJob = events.OnJob,
             JobDeliveredFlag = events.JobDelivered,

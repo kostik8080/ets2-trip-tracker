@@ -11,6 +11,8 @@ public partial class MainWindow : Window
 {
     private readonly AppServices _s;
     private readonly DispatcherTimer _timer;
+    private readonly OverlayWindow _overlay;
+    private OverlaySettingsWindow? _overlaySettings;
     private readonly ObservableCollection<string> _notices = new();
     private Driver _driver;
     private List<TripResult> _trips = new();
@@ -33,10 +35,18 @@ public partial class MainWindow : Window
         _s.Tracker.TripFinished += trip => Dispatcher.BeginInvoke(() => OnTripFinished(trip));
         _s.StartTelemetry();
 
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _overlay = new OverlayWindow(_s);
+
+        // Полсекунды — чтобы скорость в оверлее не отставала
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _timer.Tick += (_, _) => UpdateLive();
         _timer.Start();
-        Closed += (_, _) => _timer.Stop();
+        SourceInitialized += (_, _) => RegisterOverlayHotkey();
+        Closed += (_, _) =>
+        {
+            _timer.Stop();
+            _overlay.Close();
+        };
 
         ShowCompany();
         UpdatePlugin();
@@ -109,6 +119,46 @@ public partial class MainWindow : Window
         _driver = select.Chosen;
         ShowDriver();
         Reload();
+    }
+
+    // ────────────────────────────── Оверлей ──────────────────────────────
+
+    private void OnOverlaySettings(object sender, RoutedEventArgs e)
+    {
+        if (_overlaySettings != null)
+        {
+            _overlaySettings.Activate();
+            return;
+        }
+        // Не модальное: пока оно открыто, оверлей можно перетаскивать мышью
+        _overlaySettings = new OverlaySettingsWindow(_s, _overlay, UpdateLive) { Owner = this };
+        _overlaySettings.Closed += (_, _) => _overlaySettings = null;
+        _overlaySettings.Show();
+    }
+
+    private const int WM_HOTKEY = 0x0312;
+    private const int HotkeyId = 0x4F56; // «OV»
+    private const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000, VK_O = 0x4F;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
+
+    /// <summary>Ctrl+Alt+O — показать или скрыть оверлей, не выходя из игры.</summary>
+    private void RegisterOverlayHotkey()
+    {
+        var source = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        if (source == null || !RegisterHotKey(source.Handle, HotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_O)) return;
+        source.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+        {
+            if (msg == WM_HOTKEY && wParam.ToInt32() == HotkeyId)
+            {
+                _s.Overlay.Enabled = !_s.Overlay.Enabled;
+                _s.SaveOverlay();
+                UpdateLive();
+                handled = true;
+            }
+            return IntPtr.Zero;
+        });
     }
 
     // ───────────────────────── Плагин телеметрии ─────────────────────────
@@ -188,7 +238,8 @@ public partial class MainWindow : Window
         var tracker = _demoTracker ?? _s.Tracker;
         var f = tracker.LastFrame;
         bool live = f != null && f.SdkActive && DateTime.Now - tracker.LastFrameAt <= TimeSpan.FromSeconds(5);
-        UpdateProgress(live ? tracker.Current : null);
+        UpdateProgress(live ? tracker.Current : null, f);
+        _overlay.Update(live, f, live ? tracker.Current : null);
 
         if (_s.TelemetryError != null && _demoTracker == null)
             SetStatus("Нет связи с телеметрией", "BadBrush", _s.TelemetryError);
@@ -215,7 +266,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Шкала рейса: сколько пройдено и сколько осталось до финиша.</summary>
-    private void UpdateProgress(ActiveTrip? t)
+    private void UpdateProgress(ActiveTrip? t, TelemetryFrame? f)
     {
         if (t == null)
         {
@@ -223,8 +274,9 @@ public partial class MainWindow : Window
             return;
         }
         TripProgressPanel.Visibility = Visibility.Visible;
-        ProgressFrom.Text = City(t.From);
-        ProgressTo.Text = City(t.To);
+        ProgressFrom.Text = TimeView.City(t.From);
+        ProgressTo.Text = TimeView.City(t.To);
+        var time = new TimeView(_s.Overlay.TimeMode, f);
 
         if (!t.CargoLoaded)
         {
@@ -245,33 +297,20 @@ public partial class MainWindow : Window
                 : $"осталось {t.RemainingKm:N0} км";
         }
 
-        EtaText.Text = t.NavEtaSec is { } eta ? $"В пути ещё ≈ {Duration(eta / 60)} (по навигатору)" : "";
+        EtaText.Text = t.NavEtaSec is { } eta
+            ? $"В пути ещё ≈ {time.Duration(eta / 60)}, прибытие в {time.ClockAfter(eta / 60)} ({time.Kind})"
+            : "";
         EtaText.Visibility = t.NavEtaSec != null ? Visibility.Visible : Visibility.Collapsed;
 
         if (t.DeadlineMinutesLeft is { } left)
         {
             DeadlineText.Text = left >= 0
-                ? $"До срока доставки: {Duration(left)} игрового времени"
-                : $"⚠ Опоздание: {Duration(-left)} игрового времени";
+                ? $"До срока доставки: {time.Duration(left)} {time.Kind}"
+                : $"⚠ Опоздание: {time.Duration(-left)} {time.Kind}";
             DeadlineText.Foreground = (Brush)FindResource(left < 0 ? "BadBrush" : left < 60 ? "AccentBrush" : "TextBrush");
             DeadlineText.Visibility = Visibility.Visible;
         }
         else DeadlineText.Visibility = Visibility.Collapsed;
-    }
-
-    /// <summary>«Хельсинки (Lisette Logistics)» → «Хельсинки».</summary>
-    private static string City(string place)
-    {
-        int i = place.IndexOf(" (", StringComparison.Ordinal);
-        return i > 0 ? place[..i] : place;
-    }
-
-    /// <summary>Минуты → «2 ч 05 мин».</summary>
-    private static string Duration(double minutes)
-    {
-        var total = (int)Math.Round(minutes);
-        if (total >= 24 * 60) return $"{total / (24 * 60)} д {total % (24 * 60) / 60} ч";
-        return total >= 60 ? $"{total / 60} ч {total % 60:00} мин" : $"{total} мин";
     }
 
     private void SetStatus(string title, string brushKey, string details)
