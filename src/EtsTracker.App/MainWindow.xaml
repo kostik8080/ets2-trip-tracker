@@ -236,6 +236,55 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="  Достижения  ">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock x:Name="AchSummary" FontSize="16" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="AchPercent" FontSize="16" FontWeight="Bold" HorizontalAlignment="Right"
+                                               Foreground="{StaticResource AccentBrush}"/>
+                                </Grid>
+                                <ProgressBar x:Name="AchBar" Maximum="100" Margin="0,8,0,6"/>
+                                <TextBlock x:Name="AchLatest" Style="{StaticResource Muted}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="AchList">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource Card}" Width="262" Margin="0,0,10,10"
+                                                Background="{Binding CardBrush}" Opacity="{Binding CardOpacity}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="46"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Icon}" FontSize="28" FontFamily="Segoe UI Emoji"
+                                                           Foreground="{Binding IconBrush}" VerticalAlignment="Top"/>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14"
+                                                               TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}"
+                                                               TextWrapping="Wrap" FontSize="12" Margin="0,2,0,6"/>
+                                                    <ProgressBar Value="{Binding Percent, Mode=OneWay}" Maximum="100" Height="6"
+                                                                 Visibility="{Binding BarVisibility}" Margin="0,0,0,4"/>
+                                                    <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{Binding StatusBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </TabItem>
+
                 <TabItem Header="  Графики  ">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">

@@ -19,6 +19,15 @@ public partial class OverlayWindow : Window
     private bool _moveMode;
     private DateTime _lastTopmost;
 
+    private DateTime _toastUntil;
+
+    /// <summary>Показать сообщение сверху оверлея на 10 секунд (новое достижение).</summary>
+    public void Toast(string text)
+    {
+        ToastText.Text = text;
+        _toastUntil = DateTime.Now.AddSeconds(10);
+    }
+
     /// <summary>Показывать пример данных (пока открыты настройки и игра не запущена).</summary>
     public bool Preview { get; set; }
 
@@ -54,7 +63,7 @@ public partial class OverlayWindow : Window
         Panel.Background = new SolidColorBrush(Color.FromArgb((byte)(Math.Clamp(o.BackgroundOpacity, 0, 1) * 255), 15, 20, 35));
         TextElement.SetForeground(Root, brush);
         TextElement.SetFontSize(Root, o.FontSize);
-        ClockText.FontSize = SpeedText.FontSize = o.FontSize * 1.15;
+        ClockText.FontSize = SpeedText.FontSize = ToastText.FontSize = o.FontSize * 1.15;
         CargoText.FontSize = o.FontSize * 1.1;
         BarTrack.Background = BarFill.Background = brush;
         BarTrack.Height = BarFill.Height = Math.Max(5, o.FontSize * 0.5);
@@ -85,6 +94,7 @@ public partial class OverlayWindow : Window
 
         if (preview || (_moveMode && !live)) FillSample();
         else Fill(f!, trip);
+        ToastText.Visibility = DateTime.Now < _toastUntil ? Visibility.Visible : Visibility.Collapsed;
 
         if (!IsVisible) Show();
         KeepOnTop();

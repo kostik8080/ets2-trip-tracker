@@ -56,6 +56,8 @@ tracker.TripFinished += trip =>
 {
     career.Record(trip, driver, TripKind.Solo);
     ui.PrintTrip(trip);
+    foreach (var a in Achievements.UnlockedBy(Achievements.Evaluate(repo.GetTrips(driver?.Id), settings), trip.Id))
+        ui.Print($"🏆 Новое достижение: «{a.Title}» — {a.Description}");
     ui.PrintStats(repo.GetStats(driver?.Id));
 };
 

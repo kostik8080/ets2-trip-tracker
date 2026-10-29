@@ -17,6 +17,9 @@
 
     <Border x:Name="Panel" CornerRadius="10" Padding="14,10" BorderThickness="2" BorderBrush="Transparent">
         <StackPanel x:Name="Root">
+            <!-- Всплывающее сообщение: новое достижение -->
+            <TextBlock x:Name="ToastText" Visibility="Collapsed" TextWrapping="Wrap" Margin="0,0,0,6"
+                       Foreground="#FFD54F"/>
             <Grid>
                 <TextBlock x:Name="ClockText"/>
                 <TextBlock x:Name="SpeedText" HorizontalAlignment="Right" Margin="24,0,0,0"/>

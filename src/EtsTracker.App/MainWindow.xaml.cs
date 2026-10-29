@@ -223,7 +223,7 @@ public partial class MainWindow : Window
         AddNotice(trip.Status == TripStatus.Delivered
             ? $"✅ Рейс записан: {trip.Score} очков ({trip.Grade}), зарплата €{trip.Salary:N0}"
             : $"❌ Заказ отменён: {trip.Score} очков");
-        Reload(trip.Id);
+        Reload(trip.Id, announce: true);
     }
 
     private void AddNotice(string text)
@@ -346,7 +346,8 @@ public partial class MainWindow : Window
 
     // ────────────────────────── Данные и вкладки ──────────────────────────
 
-    private void Reload(long? selectTripId = null)
+    /// <param name="announce">Сообщить о достижениях, открытых с прошлой загрузки (после рейса или правки).</param>
+    private void Reload(long? selectTripId = null, bool announce = false)
     {
         _trips = _s.Repo.GetTrips(_driver.Id);
         var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -386,6 +387,7 @@ public partial class MainWindow : Window
 
         UpdateCharts();
         UpdateRates();
+        UpdateAchievements(announce);
     }
 
     private static string Mark(bool ok) => ok ? "✔" : "✘";
@@ -468,7 +470,7 @@ public partial class MainWindow : Window
         var kind = KindBox.SelectedValue is TripKind k ? k : t.Kind;
         var cls = ClassBox.SelectedValue is CargoClass c ? c : t.CargoClass;
         _s.Career.Reclassify(t, _driver, kind, cls);
-        Reload(t.Id);
+        Reload(t.Id, announce: true);
     }
 
     private void OnDeleteTrip(object sender, RoutedEventArgs e)
@@ -480,6 +482,70 @@ public partial class MainWindow : Window
         if (answer != MessageBoxResult.Yes) return;
         _s.Repo.DeleteTrip(t.Id);
         Reload();
+    }
+
+    // ──────────────────────────── Достижения ────────────────────────────
+
+    /// <summary>Открытые достижения на момент прошлой загрузки (для текущего водителя).</summary>
+    private HashSet<string>? _unlockedIds;
+    private long _achDriverId;
+
+    private void UpdateAchievements(bool announce)
+    {
+        var all = Achievements.Evaluate(_trips, _s.Scoring);
+        var unlocked = all.Where(a => a.Unlocked).ToList();
+
+        // Новые достижения объявляем только у того же водителя и только после рейса или правки
+        if (announce && _unlockedIds != null && _achDriverId == _driver.Id)
+        {
+            foreach (var a in unlocked.Where(a => !_unlockedIds.Contains(a.Def.Id)))
+            {
+                AddNotice($"🏆 Новое достижение: «{a.Def.Title}»");
+                _overlay.Toast($"🏆 Достижение: {a.Def.Title}");
+            }
+        }
+        _unlockedIds = unlocked.Select(a => a.Def.Id).ToHashSet();
+        _achDriverId = _driver.Id;
+
+        AchSummary.Text = $"Открыто {unlocked.Count} из {all.Count}";
+        AchPercent.Text = $"{(double)unlocked.Count / all.Count:P0}";
+        AchBar.Value = 100.0 * unlocked.Count / all.Count;
+        var latest = unlocked.OrderByDescending(a => a.UnlockedAt).FirstOrDefault();
+        var next = all.Where(a => !a.Unlocked).OrderByDescending(a => a.Progress).FirstOrDefault();
+        var hints = new List<string>();
+        if (latest != null) hints.Add($"Последнее: «{latest.Def.Title}», {latest.UnlockedAt:dd.MM.yyyy}");
+        if (next != null) hints.Add($"Ближе всего: «{next.Def.Title}» — {AchRow.ProgressText(next)}");
+        AchLatest.Text = string.Join(" · ", hints);
+
+        AchList.ItemsSource = all.Select(a => new AchRow(a)).ToList();
+    }
+
+    private sealed record AchRow(AchievementStatus A)
+    {
+        private static readonly Brush Locked = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
+        private static readonly Brush Open = new SolidColorBrush(Color.FromRgb(0x31, 0x47, 0x9D));
+        private static readonly Brush OpenCard = new SolidColorBrush(Color.FromRgb(0xF4, 0xF7, 0xFF));
+        private static readonly Brush Good = new SolidColorBrush(Color.FromRgb(0x05, 0x96, 0x69));
+
+        public string Icon => A.Def.Icon;
+        public string Title => A.Def.Title;
+        public string Description => A.Def.Description;
+        public double Percent => A.Progress * 100;
+        public Visibility BarVisibility => A.Unlocked ? Visibility.Collapsed : Visibility.Visible;
+        public Brush IconBrush => A.Unlocked ? Open : Locked;
+        public Brush CardBrush => A.Unlocked ? OpenCard : Brushes.White;
+        public double CardOpacity => A.Unlocked ? 1 : 0.8;
+        public Brush StatusBrush => A.Unlocked ? Good : Locked;
+        public string Status => A.Unlocked ? $"✔ Получено {A.UnlockedAt:dd.MM.yyyy}" : ProgressText(A);
+
+        /// <summary>«640 / 1 000 км», «3 / 10 рейсов», «€12 300 / €100 000».</summary>
+        public static string ProgressText(AchievementStatus a)
+        {
+            double cur = Math.Min(a.Current, a.Def.Target);
+            return a.Def.Unit == "€"
+                ? $"€{cur:N0} / €{a.Def.Target:N0}"
+                : $"{cur:N0} / {a.Def.Target:N0} {a.Def.Unit}";
+        }
     }
 
     // ────────────────────────────── Графики ──────────────────────────────
