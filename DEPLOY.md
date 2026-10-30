@@ -9,7 +9,13 @@
 
 ## 2. Сервер
 
-Зайдите на VPS по SSH и поставьте Docker:
+Зайдите на VPS по SSH. Если памяти 2 ГБ и меньше, добавьте файл подкачки, чтобы хватило на сборку:
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
+```
+
+Поставьте Docker:
 
 ```bash
 curl -fsSL https://get.docker.com | sh
@@ -21,16 +27,28 @@ curl -fsSL https://get.docker.com | sh
 ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw enable
 ```
 
-## 3. Запуск
-
-Скачайте проект (репозиторий приватный, понадобится вход в GitHub) и настройте:
+Убедившись, что вход по SSH-ключу работает, отключите вход по паролю:
 
 ```bash
-git clone https://github.com/kostik8080/ets2-trip-tracker.git && cd ets2-trip-tracker
+printf 'PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+' > /etc/ssh/sshd_config.d/00-ets-hardening.conf && sshd -t && systemctl reload ssh
 ```
 
+## 3. Запуск
+
+Код передаётся с вашего компьютера через SSH: серверу не нужен доступ к приватному репозиторию.
+Выполните в папке проекта на своём компьютере (подставьте IP сервера):
+
 ```bash
-cp .env.example .env && nano .env
+git archive --format=tar HEAD | ssh root@IP "mkdir -p /opt/ets && tar -x -C /opt/ets"
+```
+
+Дальше на сервере:
+
+```bash
+cd /opt/ets && cp .env.example .env && nano .env
 ```
 
 В `.env` укажите домен и пароль базы. Пароль можно получить командой `openssl rand -hex 32`.
@@ -55,8 +73,10 @@ docker compose -f docker-compose.prod.yml logs server | grep администр�
 
 ## Обновление
 
+С вашего компьютера, из папки проекта:
+
 ```bash
-git pull && docker compose -f docker-compose.prod.yml up -d --build
+git archive --format=tar HEAD | ssh root@IP "tar -x -C /opt/ets && cd /opt/ets && docker compose -f docker-compose.prod.yml up -d --build"
 ```
 
 ## Настройки компании
