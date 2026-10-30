@@ -93,6 +93,10 @@ public sealed record ScoreLine(string Label, double Points);
 public sealed class TripResult
 {
     public long Id { get; set; }
+    /// <summary>Постоянный идентификатор рейса: по нему сервер отличает повторную отправку от нового рейса.</summary>
+    public Guid ClientId { get; set; }
+    /// <summary>Демо-рейс: на сервер не отправляется.</summary>
+    public bool IsDemo { get; set; }
     public long? DriverId { get; set; }
     public TripStatus Status { get; set; }
     public TripKind Kind { get; set; }

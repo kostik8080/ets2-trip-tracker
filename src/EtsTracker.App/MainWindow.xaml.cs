@@ -51,6 +51,8 @@ public partial class MainWindow : Window
         ShowCompany();
         UpdatePlugin();
         Reload();
+        InitRating();
+        Loaded += async (_, _) => await ShowRatingAsync();
         UpdateLive();
     }
 
@@ -119,6 +121,7 @@ public partial class MainWindow : Window
         _driver = select.Chosen;
         ShowDriver();
         Reload();
+        _ = ShowRatingAsync();
     }
 
     // ────────────────────────────── Оверлей ──────────────────────────────
@@ -224,6 +227,13 @@ public partial class MainWindow : Window
             ? $"✅ Рейс записан: {trip.Score} очков ({trip.Grade}), зарплата €{trip.Salary:N0}"
             : $"❌ Заказ отменён: {trip.Score} очков");
         Reload(trip.Id, announce: true);
+        _ = SyncThenRefreshAsync();
+    }
+
+    private async Task SyncThenRefreshAsync()
+    {
+        await SyncAsync();
+        await LoadLeaderboardAsync();
     }
 
     private void AddNotice(string text)
@@ -332,7 +342,11 @@ public partial class MainWindow : Window
         DemoButton.IsEnabled = false;
         var demo = _s.CreateDemoTracker();
         demo.Notice += msg => Dispatcher.BeginInvoke(() => AddNotice(msg));
-        demo.TripFinished += trip => Dispatcher.BeginInvoke(() => OnTripFinished(trip));
+        demo.TripFinished += trip =>
+        {
+            trip.IsDemo = true; // демо-рейс на сервер не отправляется
+            Dispatcher.BeginInvoke(() => OnTripFinished(trip));
+        };
         AddNotice("Демо-рейс: имитирую поездку…");
         _demoTracker = demo;
         try { await Task.Run(() => DemoTrip.Run(demo, TimeSpan.FromSeconds(20))); }

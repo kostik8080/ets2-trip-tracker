@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+publish/
+plugins/
+*.xlsx
+*.jpg
+*.db

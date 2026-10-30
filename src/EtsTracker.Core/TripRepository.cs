@@ -68,9 +68,38 @@ public sealed class TripRepository
         AddColumnIfMissing(c, "trips", "trailer_damage", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "trips", "salary", "REAL NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "trips", "salary_json", "TEXT NOT NULL DEFAULT '[]'");
+        AddColumnIfMissing(c, "trips", "client_id", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(c, "trips", "is_demo", "INTEGER NOT NULL DEFAULT 0");
+        // '' — ещё не отправлен, 'skipped' — водитель отказался отправлять, иначе время отправки
+        AddColumnIfMissing(c, "trips", "synced_at", "TEXT NOT NULL DEFAULT ''");
+        BackfillClientIds(c);
+        // Демо-рейсы, записанные до появления отметки is_demo
+        Exec(c, """
+            UPDATE trips SET is_demo = 1
+            WHERE cargo_id = 'glass_pck' AND from_place = 'Хельсинки (Lisette Logistics)' AND to_place = 'Турку (Tradeaux)';
+            """);
         AddColumnIfMissing(c, "drivers", "is_admin", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "drivers", "pin_hash", "TEXT NOT NULL DEFAULT ''");
         EnsureAdmin(c);
+    }
+
+    private static void BackfillClientIds(SqliteConnection c)
+    {
+        var ids = new List<long>();
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = "SELECT id FROM trips WHERE client_id = '';";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) ids.Add(r.GetInt64(0));
+        }
+        foreach (var id in ids)
+        {
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "UPDATE trips SET client_id = $guid WHERE id = $id;";
+            cmd.Parameters.AddWithValue("$guid", Guid.NewGuid().ToString());
+            cmd.Parameters.AddWithValue("$id", id);
+            cmd.ExecuteNonQuery();
+        }
     }
 
     /// <summary>Если администратора нет, им становится первый зарегистрированный водитель.</summary>
@@ -227,13 +256,13 @@ public sealed class TripRepository
                 fuel_used_l, revenue, earned_xp, cargo_damage, auto_parked, fines_count, fines_total,
                 tolls_total, speeding_seconds, max_speed_kph, started_mid_job, score, grade, breakdown_json,
                 driver_id, trip_kind, cargo_class, from_city_id, to_city_id, trailer_count,
-                truck_damage, trailer_damage, salary, salary_json)
+                truck_damage, trailer_damage, salary, salary_json, client_id, is_demo)
             VALUES ($status, $started, $finished, $cargoId, $cargoName, $mass,
                 $traits, $special, $from, $to, $truck, $jobKm, $drivenKm,
                 $fuel, $revenue, $xp, $damage, $autoParked, $finesCount, $finesTotal,
                 $tolls, $speeding, $maxSpeed, $midJob, $score, $grade, $breakdown,
                 $driver, $kind, $class, $fromId, $toId, $trailers,
-                $truckDamage, $trailerDamage, $salary, $salaryJson);
+                $truckDamage, $trailerDamage, $salary, $salaryJson, $clientId, $isDemo);
             SELECT last_insert_rowid();
             """;
         var p = cmd.Parameters;
@@ -274,6 +303,9 @@ public sealed class TripRepository
         p.AddWithValue("$trailerDamage", t.TrailerDamage);
         p.AddWithValue("$salary", t.Salary);
         p.AddWithValue("$salaryJson", JsonSerializer.Serialize(t.SalaryBreakdown, ConfigStore.Json));
+        if (t.ClientId == Guid.Empty) t.ClientId = Guid.NewGuid();
+        p.AddWithValue("$clientId", t.ClientId.ToString());
+        p.AddWithValue("$isDemo", t.IsDemo);
         t.Id = (long)cmd.ExecuteScalar()!;
     }
 
@@ -292,6 +324,23 @@ public sealed class TripRepository
         cmd.Parameters.AddWithValue("$salaryJson", JsonSerializer.Serialize(t.SalaryBreakdown, ConfigStore.Json));
         cmd.Parameters.AddWithValue("$id", t.Id);
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Отмечает рейсы отправленными на сервер (или пропущенными — status = "skipped").</summary>
+    public void MarkSynced(IEnumerable<Guid> clientIds, string? status = null)
+    {
+        using var c = Open();
+        using var tx = c.BeginTransaction();
+        foreach (var id in clientIds)
+        {
+            using var cmd = c.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = "UPDATE trips SET synced_at = $at WHERE client_id = $id;";
+            cmd.Parameters.AddWithValue("$at", status ?? DateTime.UtcNow.ToString("O"));
+            cmd.Parameters.AddWithValue("$id", id.ToString());
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 
     public void DeleteTrip(long id)
@@ -321,7 +370,7 @@ public sealed class TripRepository
     }
 
     /// <summary>Все рейсы водителя (null — рейсы без водителя), новые первыми.</summary>
-    public List<TripResult> GetTrips(long? driverId, int limit = int.MaxValue)
+    public List<TripResult> GetTrips(long? driverId, int limit = int.MaxValue, bool unsyncedOnly = false)
     {
         using var c = Open();
         using var cmd = c.CreateCommand();
@@ -331,11 +380,14 @@ public sealed class TripRepository
                 earned_xp, cargo_damage, auto_parked, fines_count, fines_total, tolls_total, speeding_seconds,
                 max_speed_kph, started_mid_job, score, grade, breakdown_json,
                 driver_id, trip_kind, cargo_class, from_city_id, to_city_id, trailer_count,
-                truck_damage, trailer_damage, salary, salary_json
-            FROM trips WHERE driver_id IS $driver ORDER BY id DESC LIMIT $n;
+                truck_damage, trailer_damage, salary, salary_json, client_id, is_demo
+            FROM trips
+            WHERE driver_id IS $driver AND (NOT $unsynced OR (synced_at = '' AND is_demo = 0))
+            ORDER BY id DESC LIMIT $n;
             """;
         cmd.Parameters.AddWithValue("$driver", (object?)driverId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$n", limit);
+        cmd.Parameters.AddWithValue("$unsynced", unsyncedOnly);
         using var r = cmd.ExecuteReader();
         var list = new List<TripResult>();
         while (r.Read())
@@ -380,6 +432,8 @@ public sealed class TripRepository
                 TrailerDamage = r.GetDouble(35),
                 Salary = r.GetDouble(36),
                 SalaryBreakdown = Lines(r.GetString(37)),
+                ClientId = Guid.TryParse(r.GetString(38), out var guid) ? guid : Guid.Empty,
+                IsDemo = r.GetBoolean(39),
             });
         }
         return list;

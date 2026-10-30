@@ -1,0 +1,36 @@
+# Локальная проверка сервера: docker compose up -d --build
+# Страница рейтинга: http://127.0.0.1:8080
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ets
+      POSTGRES_USER: ets
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-only}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ets -d ets"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_CONNECTION: Host=db;Database=ets;Username=ets;Password=${POSTGRES_PASSWORD:-local-dev-only}
+      COMPANY_TZ: Europe/Moscow
+    volumes:
+      - server-data:/data
+    ports:
+      # Только с этого компьютера. Для настоящего сервера здесь будет HTTPS
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  db-data:
+  server-data:

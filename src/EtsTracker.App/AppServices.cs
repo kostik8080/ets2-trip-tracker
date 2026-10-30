@@ -22,6 +22,7 @@ public sealed class AppServices : IDisposable
     public TripTracker Tracker { get; }
     public AppState State { get; }
     public OverlaySettings Overlay { get; }
+    public ServerSettings Server { get; }
     /// <summary>Почему не удалось подключиться к телеметрии (null — всё в порядке).</summary>
     public string? TelemetryError { get; private set; }
 
@@ -35,6 +36,7 @@ public sealed class AppServices : IDisposable
         Company = ConfigStore.LoadOrCreate<CompanySettings>(Path.Combine(DataDir, "company.json"));
         State = ConfigStore.LoadOrCreate<AppState>(AppState.PathIn(DataDir));
         Overlay = ConfigStore.LoadOrCreate<OverlaySettings>(Path.Combine(DataDir, "overlay.json"));
+        Server = ConfigStore.LoadOrCreate<ServerSettings>(Path.Combine(DataDir, "server.json"));
         Repo = new TripRepository(Path.Combine(DataDir, "trips.db"));
         Career = new CareerService(Repo, Company);
         // Незавершённый рейс переживает перезапуск трекера
@@ -101,6 +103,8 @@ public sealed class AppServices : IDisposable
         }
         ConfigStore.Save(Path.Combine(DataDir, "company.json"), Company);
     }
+
+    public void SaveServer() => ConfigStore.Save(Path.Combine(DataDir, "server.json"), Server);
 
     public void SaveOverlay() => ConfigStore.Save(Path.Combine(DataDir, "overlay.json"), Overlay);
 

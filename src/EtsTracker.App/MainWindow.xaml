@@ -236,6 +236,92 @@
                     </Grid>
                 </TabItem>
 
+                <TabItem Header="  Рейтинг  ">
+                    <Grid>
+                        <!-- Вход на сервер компании -->
+                        <ScrollViewer x:Name="ServerConnectPanel" VerticalScrollBarVisibility="Auto">
+                            <Border Style="{StaticResource Card}" MaxWidth="460" HorizontalAlignment="Left" VerticalAlignment="Top">
+                                <StackPanel>
+                                    <TextBlock Text="Сервер компании" FontSize="16" FontWeight="SemiBold"/>
+                                    <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                               Text="Войдите, и ваши рейсы будут отправляться на общий сервер, а здесь появится рейтинг всех водителей."/>
+                                    <TextBlock Text="Адрес сервера" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="ServerUrlBox"/>
+                                    <TextBlock Text="Никнейм" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="ServerNicknameBox" MaxLength="40"/>
+                                    <TextBlock Text="Пароль (от 8 символов)" Style="{StaticResource FieldLabel}"/>
+                                    <PasswordBox x:Name="ServerPasswordBox" Padding="4,3"/>
+                                    <TextBlock Text="Код приглашения (только для регистрации)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="ServerInviteBox" MaxLength="20"/>
+                                    <TextBlock x:Name="ServerErrorText" Foreground="{StaticResource BadBrush}" TextWrapping="Wrap"
+                                               Margin="0,10,0,0" Visibility="Collapsed"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                        <Button Content="Войти" Style="{StaticResource PrimaryButton}" Click="OnServerLogin"/>
+                                        <Button Content="Зарегистрироваться" Click="OnServerRegister" Margin="0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </ScrollViewer>
+
+                        <!-- Общий рейтинг -->
+                        <DockPanel x:Name="ServerRatingPanel" Visibility="Collapsed">
+                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <Grid>
+                                        <StackPanel>
+                                            <TextBlock x:Name="ServerAccountText" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="SyncStatusText" Style="{StaticResource Muted}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Content="Обновить" Click="OnRatingRefresh"/>
+                                            <Button Content="Страница рейтинга" Click="OnOpenRatingPage"/>
+                                            <Button Content="Выйти" Click="OnServerLogout" Margin="0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel x:Name="InvitePanel" Orientation="Horizontal" Margin="0,10,0,0">
+                                        <TextBlock Text="Пригласить водителя с рангом:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox x:Name="RankInviteBox" Width="170" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                                  Margin="0,0,8,0"/>
+                                        <Button Content="Создать код" Click="OnCreateInvite"/>
+                                        <TextBox x:Name="InviteCodeBox" IsReadOnly="True" Width="130" FontWeight="Bold"
+                                                 VerticalContentAlignment="Center" Visibility="Collapsed"
+                                                 ToolTip="Одноразовый код: отправьте его водителю"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                                <ComboBox x:Name="RatingPeriodBox" Width="120" Margin="0,0,8,0" SelectionChanged="OnRatingFilterChanged">
+                                    <ComboBoxItem Content="Неделя" Tag="week"/>
+                                    <ComboBoxItem Content="Месяц" Tag="month"/>
+                                    <ComboBoxItem Content="Всё время" Tag="all"/>
+                                </ComboBox>
+                                <ComboBox x:Name="RatingMetricBox" Width="130" Margin="0,0,14,0" SelectionChanged="OnRatingFilterChanged">
+                                    <ComboBoxItem Content="По очкам" Tag="score"/>
+                                    <ComboBoxItem Content="По км" Tag="km"/>
+                                    <ComboBoxItem Content="По зарплате" Tag="salary"/>
+                                    <ComboBoxItem Content="По рейсам" Tag="delivered"/>
+                                </ComboBox>
+                                <TextBlock x:Name="RatingTotalsText" VerticalAlignment="Center" Style="{StaticResource Muted}"/>
+                            </StackPanel>
+                            <DataGrid x:Name="RatingGrid" RowHeight="30">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="#" Binding="{Binding Place}" Width="36"/>
+                                    <DataGridTextColumn Header="Водитель" Binding="{Binding Nickname}" Width="*" MinWidth="130"/>
+                                    <DataGridTextColumn Header="Ранг" Binding="{Binding Rank}" Width="140"/>
+                                    <DataGridTextColumn Header="Очки" Binding="{Binding Score}" Width="70" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Км" Binding="{Binding Km}" Width="70" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Зарплата" Binding="{Binding Salary}" Width="90" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Рейсы" Binding="{Binding Delivered}" Width="62" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Без царапин" Binding="{Binding Perfect}" Width="100" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Штрафы" Binding="{Binding Fines}" Width="72" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Ур." Binding="{Binding Level}" Width="44" ElementStyle="{StaticResource NumberCell}"/>
+                                    <DataGridTextColumn Header="Достижения" Binding="{Binding Achievements}" Width="104" ElementStyle="{StaticResource NumberCell}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Grid>
+                </TabItem>
+
                 <TabItem Header="  Достижения  ">
                     <DockPanel>
                         <Border DockPanel.Dock="Top" Style="{StaticResource Card}">

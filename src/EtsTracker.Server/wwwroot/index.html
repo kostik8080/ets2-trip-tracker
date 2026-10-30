@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Рейтинг водителей</title>
+<style>
+  :root { --brand: #31479d; --brand-light: #e3e9f8; --page: #f2f4f9; --card: #fff; --line: #dfe4f0; --text: #111827; --muted: #6b7280; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text); font: 15px/1.4 "Segoe UI", system-ui, sans-serif; }
+  header { background: var(--brand); color: #fff; padding: 18px 16px; }
+  header h1 { margin: 0; font: bold 26px Georgia, serif; }
+  header p { margin: 2px 0 0; color: #c9d3f0; }
+  main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  .totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .total { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+  .total b { display: block; font-size: 20px; }
+  .total span { color: var(--muted); font-size: 12px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .group { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--card); }
+  .group button { border: 0; background: none; padding: 7px 12px; font: inherit; cursor: pointer; color: var(--text); }
+  .group button.on { background: var(--brand); color: #fff; }
+  .table { background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  th, td { padding: 9px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-size: 12px; font-weight: 600; }
+  th.l, td.l { text-align: left; }
+  tr:last-child td { border-bottom: 0; }
+  td.on { font-weight: 700; color: var(--brand); }
+  .rank { color: var(--muted); font-size: 12px; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="company">Рейтинг</h1>
+  <p>Рейтинг водителей</p>
+</header>
+<main>
+  <div class="totals" id="totals"></div>
+  <div class="filters">
+    <div class="group" id="period">
+      <button data-v="week">Неделя</button>
+      <button data-v="month">Месяц</button>
+      <button data-v="all">Всё время</button>
+    </div>
+    <div class="group" id="metric">
+      <button data-v="score">Очки</button>
+      <button data-v="km">Км</button>
+      <button data-v="salary">Зарплата</button>
+      <button data-v="delivered">Рейсы</button>
+    </div>
+  </div>
+  <div class="table" id="table"></div>
+</main>
+<script>
+  const state = { period: "month", metric: "score" };
+  const fmt = n => Math.round(n).toLocaleString("ru-RU");
+  const esc = s => { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; };
+  const medal = p => ["🥇", "🥈", "🥉"][p - 1] || p;
+
+  function pick(groupId, key) {
+    const group = document.getElementById(groupId);
+    const mark = () => group.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === state[key]));
+    group.addEventListener("click", e => {
+      if (!e.target.dataset.v) return;
+      state[key] = e.target.dataset.v;
+      mark();
+      load();
+    });
+    mark();
+  }
+
+  async function load() {
+    const table = document.getElementById("table");
+    try {
+      const r = await fetch(`/api/leaderboard?period=${state.period}&metric=${state.metric}`);
+      if (!r.ok) throw new Error(r.status);
+      render(await r.json());
+    } catch {
+      table.innerHTML = '<div class="empty">Не удалось загрузить рейтинг.</div>';
+    }
+  }
+
+  function render(d) {
+    document.getElementById("company").textContent = d.companyName;
+    document.title = `${d.companyName} — рейтинг водителей`;
+    document.getElementById("totals").innerHTML = [
+      [fmt(d.totalDelivered), "рейсов"], [fmt(d.totalKm), "км"],
+      [fmt(d.totalTonnes), "тонн"], ["€" + fmt(d.totalSalary), "зарплата ВТК"],
+    ].map(([v, l]) => `<div class="total"><b>${v}</b><span>${l}</span></div>`).join("");
+
+    const on = m => d.metric === m ? ' class="on"' : "";
+    document.getElementById("table").innerHTML = d.rows.length === 0
+      ? '<div class="empty">Пока нет водителей.</div>'
+      : `<table><tr><th>#</th><th class="l">Водитель</th><th>Очки</th><th>Км</th><th>Зарплата</th>
+         <th>Рейсы</th><th>Без царапин</th><th>Штрафы</th><th>Ур.</th><th>Достижения</th></tr>` +
+        d.rows.map(r => `<tr><td>${medal(r.place)}</td>
+          <td class="l">${esc(r.nickname)}${r.isAdmin ? " ★" : ""}<br><span class="rank">${esc(r.rankName)}</span></td>
+          <td${on("score")}>${fmt(r.score)}</td><td${on("km")}>${fmt(r.km)}</td>
+          <td${on("salary")}>€${fmt(r.salary)}</td><td${on("delivered")}>${r.delivered}</td>
+          <td>${r.perfect}</td><td>${r.fines}</td><td>${r.level}</td>
+          <td>${r.achievements} / ${d.achievementsTotal}</td></tr>`).join("") + "</table>";
+  }
+
+  pick("period", "period");
+  pick("metric", "metric");
+  load();
+  setInterval(load, 30000);
+</script>
+</body>
+</html>
