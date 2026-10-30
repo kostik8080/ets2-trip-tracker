@@ -20,6 +20,8 @@ public sealed class ServerSettings
     public string Url { get; set; } = "http://127.0.0.1:8080";
     /// <summary>Вход на сервер для каждого водителя этого трекера (ключ — его номер в локальной базе).</summary>
     public Dictionary<long, ServerAccount> Accounts { get; set; } = new();
+    /// <summary>На какой сервер водитель отправлял рейсы: при смене адреса их нужно отправить заново.</summary>
+    public Dictionary<long, string> SyncedTo { get; set; } = new();
 }
 
 public sealed class ServerException : Exception
@@ -68,6 +70,25 @@ public sealed class ServerClient
 
     public Task<Leaderboard> GetLeaderboardAsync(string period, string metric)
         => SendAsync<Leaderboard>(new HttpRequestMessage(HttpMethod.Get, $"api/leaderboard?period={period}&metric={metric}"));
+
+    public Task<List<LiveTrip>> GetLiveAsync()
+        => SendAsync<List<LiveTrip>>(new HttpRequestMessage(HttpMethod.Get, "api/live"));
+
+    public Task<DriverAchievements> GetDriverAchievementsAsync(long driverId)
+        => SendAsync<DriverAchievements>(new HttpRequestMessage(HttpMethod.Get, $"api/drivers/{driverId}/achievements"));
+
+    public async Task SendLiveAsync(LiveTripUpdate update)
+    {
+        using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Post, "api/live")
+        {
+            Content = JsonContent.Create(update, options: ApiJson.Options),
+        });
+    }
+
+    public async Task ClearLiveAsync()
+    {
+        using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Delete, "api/live"));
+    }
 
     public Task<ServerDriver> GetMeAsync() => SendAsync<ServerDriver>(new HttpRequestMessage(HttpMethod.Get, "api/me"));
 

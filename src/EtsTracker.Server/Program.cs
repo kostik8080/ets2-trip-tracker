@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using EtsTracker;
 using EtsTracker.Server;
@@ -144,7 +145,62 @@ app.MapPost("/api/trips", async (HttpContext ctx, List<TripUpload> uploads) =>
     return Results.Ok(new TripUploadResult(accepted, duplicates, saved, rejected));
 });
 
+// ──────────────────────────── Сейчас в рейсе ───────────────────────────
+
+// Только в памяти: это мгновенное состояние, после перезапуска сервера трекеры пришлют его снова
+var live = new ConcurrentDictionary<long, LiveTrip>();
+var liveTimeout = TimeSpan.FromSeconds(60);
+
+static string Short(string? text) => (text ?? "").Length > 80 ? text![..80] : text ?? "";
+
+app.MapPost("/api/live", async (HttpContext ctx, LiveTripUpdate u) =>
+{
+    var d = await CurrentDriver(ctx);
+    if (d == null) return NotLoggedIn();
+    var clean = u with
+    {
+        CargoName = Short(u.CargoName),
+        From = Short(u.From),
+        To = Short(u.To),
+        CargoMassT = Math.Clamp(u.CargoMassT, 0, 500),
+        Progress = Math.Clamp(u.Progress, 0, 1),
+        RemainingKm = Math.Clamp(u.RemainingKm, 0, 20_000),
+        SpeedKph = Math.Clamp(u.SpeedKph, 0, 300),
+    };
+    live[d.Id] = new LiveTrip(d.Id, d.Nickname, Names.Of(d.Rank), clean, DateTime.UtcNow);
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/live", async (HttpContext ctx) =>
+{
+    var d = await CurrentDriver(ctx);
+    if (d == null) return NotLoggedIn();
+    live.TryRemove(d.Id, out _);
+    return Results.NoContent();
+});
+
+app.MapGet("/api/live", () =>
+{
+    // Трекер закрылся или пропала связь: через минуту водитель сам исчезает из списка
+    foreach (var (id, trip) in live)
+        if (DateTime.UtcNow - trip.UpdatedAt > liveTimeout) live.TryRemove(id, out _);
+    return Results.Ok(live.Values.OrderByDescending(t => t.Trip.Progress).ToList());
+});
+
 // ───────────────────────────── Рейтинг ─────────────────────────────
+
+app.MapGet("/api/drivers/{id:long}/achievements", async (long id) =>
+{
+    var driver = (await db.GetDriversAsync()).FirstOrDefault(d => d.Id == id);
+    if (driver == null) return Error("Водитель не найден.", StatusCodes.Status404NotFound);
+
+    var trips = (await db.GetAllTripsAsync()).Where(t => t.DriverId == id);
+    var items = Achievements.Evaluate(trips, scoring)
+        .Select(a => new AchievementInfo(a.Def.Id, a.Def.Icon, a.Def.Title, a.Def.Description,
+            a.Unlocked, a.UnlockedAt, Math.Min(a.Current, a.Def.Target), a.Def.Target, a.Def.Unit))
+        .ToList();
+    return Results.Ok(new DriverAchievements(id, driver.Nickname, items.Count(i => i.Unlocked), items.Count, items));
+});
 
 app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
 {
@@ -160,7 +216,9 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
     };
 
     var drivers = await db.GetDriversAsync();
-    var byDriver = (await db.GetAllTripsAsync()).ToLookup(t => t.DriverId);
+    var allTrips = await db.GetAllTripsAsync();
+    var byDriver = allTrips.ToLookup(t => t.DriverId);
+    var allTime = DriverStats.Compute(allTrips);
 
     var rows = drivers.Select(d =>
     {
@@ -203,6 +261,7 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
         Period = period,
         Metric = metric,
         AchievementsTotal = Achievements.All.Count,
+        CompanyAccount = allTime.Salary - allTime.FuelL * company.CompanyAccountFuelPerLiter,
         TotalKm = sorted.Sum(r => r.Km),
         TotalTonnes = sorted.Sum(r => r.Tonnes),
         TotalSalary = sorted.Sum(r => r.Salary),

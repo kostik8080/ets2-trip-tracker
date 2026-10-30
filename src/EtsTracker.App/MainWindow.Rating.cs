@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace EtsTracker.App;
@@ -9,7 +10,11 @@ namespace EtsTracker.App;
 public partial class MainWindow
 {
     private readonly DispatcherTimer _syncTimer = new() { Interval = TimeSpan.FromMinutes(1) };
+    private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(15) };
     private bool _syncing;
+    private DateTime _lastLivePost;
+    private bool _livePublished;
+    private long? _ratingDriverId;
 
     private ServerAccount? Account => _s.Server.Accounts.GetValueOrDefault(_driver.Id);
 
@@ -25,7 +30,13 @@ public partial class MainWindow
             await LoadLeaderboardAsync();
         };
         _syncTimer.Start();
-        Closed += (_, _) => _syncTimer.Stop();
+        _liveTimer.Tick += async (_, _) => await LoadLiveAsync();
+        _liveTimer.Start();
+        Closed += (_, _) =>
+        {
+            _syncTimer.Stop();
+            _liveTimer.Stop();
+        };
     }
 
     /// <summary>Показывает форму входа или рейтинг — в зависимости от выбранного водителя.</summary>
@@ -45,11 +56,14 @@ public partial class MainWindow
             return;
         }
 
+        // Вход сделан до появления этой отметки: рейсы отправлены на текущий сервер
+        if (_s.Server.SyncedTo.TryAdd(_driver.Id, _s.Server.Url)) _s.SaveServer();
         ServerAccountText.Text = $"Вы вошли как {account.Nickname} · {_s.Server.Url}";
         InvitePanel.Visibility = account.IsAdmin ? Visibility.Visible : Visibility.Collapsed;
         InviteCodeBox.Visibility = Visibility.Collapsed;
         await SyncAsync();
         await LoadLeaderboardAsync();
+        await LoadLiveAsync();
     }
 
     // ─────────────────────────────── Вход ───────────────────────────────
@@ -78,6 +92,9 @@ public partial class MainWindow
             var url = ServerUrlBox.Text.Trim();
             var auth = await connect(new ServerClient(url));
             _s.Server.Url = ServerClient.ParseUrl(url).ToString().TrimEnd('/');
+            if (_s.Server.SyncedTo.TryGetValue(_driver.Id, out var previous) && previous != _s.Server.Url)
+                _s.Repo.ResetSynced(_driver.Id);
+            _s.Server.SyncedTo[_driver.Id] = _s.Server.Url;
             _s.Server.Accounts[_driver.Id] = new ServerAccount
             {
                 Nickname = auth.Driver.Nickname, Token = auth.Token, IsAdmin = auth.Driver.IsAdmin,
@@ -166,6 +183,69 @@ public partial class MainWindow
         }
     }
 
+    // ──────────────────────────── Сейчас в рейсе ───────────────────────────
+
+    /// <summary>Раз в 15 секунд сообщает серверу о текущем рейсе; демо-рейс не показывается другим.</summary>
+    private async void PublishLive(ActiveTrip? trip, TelemetryFrame? f)
+    {
+        if (_demoTracker != null || Account is not { } account) return;
+        try
+        {
+            var client = new ServerClient(_s.Server.Url, account.Token);
+            if (trip == null || f == null)
+            {
+                if (!_livePublished) return;
+                _livePublished = false;
+                await client.ClearLiveAsync();
+                return;
+            }
+            if (DateTime.Now - _lastLivePost < TimeSpan.FromSeconds(15)) return;
+            _lastLivePost = DateTime.Now;
+            _livePublished = true;
+            await client.SendLiveAsync(new LiveTripUpdate
+            {
+                CargoName = trip.CargoName,
+                CargoMassT = trip.CargoMassKg / 1000,
+                From = TimeView.City(trip.From),
+                To = TimeView.City(trip.To),
+                CargoLoaded = trip.CargoLoaded,
+                Progress = trip.Progress,
+                RemainingKm = trip.RemainingKm,
+                SpeedKph = f.SpeedKph,
+                Paused = f.Paused,
+            });
+        }
+        catch (ServerException) { /* нет связи — сообщим в следующий раз */ }
+    }
+
+    private async Task LoadLiveAsync()
+    {
+        if (Account is not { } account) return;
+        try
+        {
+            var list = await new ServerClient(_s.Server.Url, account.Token).GetLiveAsync();
+            LiveList.ItemsSource = list.Select(l => new LiveRow(l)).ToList();
+            LiveEmptyText.Visibility = list.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (ServerException) { }
+    }
+
+    private sealed record LiveRow(LiveTrip L)
+    {
+        public string Nickname => $"{L.Nickname} · {L.RankName}";
+        public string Cargo => $"{L.Trip.CargoName}, {L.Trip.CargoMassT:0.#} т";
+        public string Route => $"{L.Trip.From} → {L.Trip.To}";
+        public double Percent => L.Trip.Progress * 100;
+        public string Status
+        {
+            get
+            {
+                var where = L.Trip.CargoLoaded ? $"осталось {L.Trip.RemainingKm:N0} км · {L.Trip.Progress:P0}" : "едет за грузом";
+                return $"{where} · {(L.Trip.Paused ? "пауза" : $"{L.Trip.SpeedKph:0} км/ч")}";
+            }
+        }
+    }
+
     // ───────────────────────────── Рейтинг ─────────────────────────────
 
     private async Task LoadLeaderboardAsync()
@@ -177,16 +257,46 @@ public partial class MainWindow
             var metric = ((ComboBoxItem)RatingMetricBox.SelectedItem).Tag as string ?? "score";
             var board = await new ServerClient(_s.Server.Url, account.Token).GetLeaderboardAsync(period, metric);
 
-            RatingGrid.ItemsSource = board.Rows
+            var rows = board.Rows
                 .Select(r => new RatingRow(r, board.AchievementsTotal, r.Nickname.Equals(account.Nickname, StringComparison.OrdinalIgnoreCase)))
                 .ToList();
-            RatingTotalsText.Text = $"{board.CompanyName}: {board.TotalDelivered:N0} рейсов · {board.TotalKm:N0} км · " +
+            var keep = _ratingDriverId;
+            RatingGrid.ItemsSource = rows;
+            RatingGrid.SelectedItem = rows.FirstOrDefault(r => r.R.DriverId == keep);
+            RatingTotalsText.Text = $"Общий счёт {board.CompanyName}: €{board.CompanyAccount:N0} · " +
+                                    $"за период {board.TotalDelivered:N0} рейсов · {board.TotalKm:N0} км · " +
                                     $"{board.TotalTonnes:N0} т · зарплата €{board.TotalSalary:N0}";
         }
         catch (ServerException ex) when (!ex.Unauthorized)
         {
             RatingTotalsText.Text = ex.Message;
         }
+    }
+
+    private async void OnRatingDriverSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (RatingGrid.SelectedItem is not RatingRow row || Account is not { } account) return;
+        _ratingDriverId = row.R.DriverId;
+        try
+        {
+            var a = await new ServerClient(_s.Server.Url, account.Token).GetDriverAchievementsAsync(row.R.DriverId);
+            var got = a.Items.Where(i => i.Unlocked).ToList();
+            RatingAchTitle.Text = got.Count == 0
+                ? $"{a.Nickname}: пока нет достижений"
+                : $"Достижения {a.Nickname}: {a.Unlocked} из {a.Total}";
+            RatingAchList.ItemsSource = got.Select(i => new RatingAchRow(i)).ToList();
+        }
+        catch (ServerException ex)
+        {
+            RatingAchTitle.Text = ex.Message;
+        }
+    }
+
+    private sealed record RatingAchRow(AchievementInfo I)
+    {
+        public string Icon => I.Icon;
+        public string Title => I.Title;
+        public string Tip => $"{I.Description} Получено {I.UnlockedAt?.ToLocalTime():dd.MM.yyyy}";
     }
 
     private async void OnRatingFilterChanged(object sender, SelectionChangedEventArgs e)
@@ -221,7 +331,13 @@ public partial class MainWindow
 
     private sealed record RatingRow(LeaderboardRow R, int AchievementsTotal, bool IsMe)
     {
+        private static readonly Brush Gold = new SolidColorBrush(Color.FromRgb(0xE3, 0xB5, 0x2B));
+        private static readonly Brush Silver = new SolidColorBrush(Color.FromRgb(0xB4, 0xBC, 0xC6));
+        private static readonly Brush Bronze = new SolidColorBrush(Color.FromRgb(0xCD, 0x85, 0x45));
+
         public string Place => R.Place.ToString();
+        public Brush MedalBrush => R.Place switch { 1 => Gold, 2 => Silver, 3 => Bronze, _ => Brushes.Transparent };
+        public Brush PlaceBrush => R.Place <= 3 ? Brushes.White : Brushes.Black;
         public string Nickname => (R.IsAdmin ? $"{R.Nickname} ★" : R.Nickname) + (IsMe ? "  (вы)" : "");
         public string Rank => R.RankName;
         public string Score => R.Score.ToString("N0");

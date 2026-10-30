@@ -29,6 +29,22 @@
   td.on { font-weight: 700; color: var(--brand); }
   .rank { color: var(--muted); font-size: 12px; }
   .empty { padding: 30px; text-align: center; color: var(--muted); }
+  h2 { margin: 18px 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .account { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .account span { color: #c9d3f0; }
+  .live { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+  .card b { font-size: 15px; }
+  .card small { color: var(--muted); display: block; }
+  .bar { height: 8px; border-radius: 4px; background: var(--brand-light); margin: 8px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--brand); }
+  .none { color: var(--muted); }
+  tr.driver { cursor: pointer; }
+  tr.driver:hover td { background: #f8f9fd; }
+  tr.open td { background: var(--brand-light); }
+  td.ach { white-space: normal; text-align: left; background: #f8f9fd; }
+  .chip { display: inline-block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 3px 10px; margin: 3px 4px 3px 0; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 8px 2px; }
 </style>
 </head>
 <body>
@@ -38,6 +54,9 @@
 </header>
 <main>
   <div class="totals" id="totals"></div>
+  <h2>Сейчас в рейсе</h2>
+  <div class="live" id="live"></div>
+  <h2>Рейтинг</h2>
   <div class="filters">
     <div class="group" id="period">
       <button data-v="week">Неделя</button>
@@ -52,6 +71,7 @@
     </div>
   </div>
   <div class="table" id="table"></div>
+  <p class="hint">Нажмите на водителя, чтобы увидеть его достижения.</p>
 </main>
 <script>
   const state = { period: "month", metric: "score" };
@@ -86,27 +106,69 @@
     document.getElementById("company").textContent = d.companyName;
     document.title = `${d.companyName} — рейтинг водителей`;
     document.getElementById("totals").innerHTML = [
+      ["€" + fmt(d.companyAccount), "общий счёт компании", "account"],
       [fmt(d.totalDelivered), "рейсов"], [fmt(d.totalKm), "км"],
       [fmt(d.totalTonnes), "тонн"], ["€" + fmt(d.totalSalary), "зарплата ВТК"],
-    ].map(([v, l]) => `<div class="total"><b>${v}</b><span>${l}</span></div>`).join("");
+    ].map(([v, l, c]) => `<div class="total ${c || ""}"><b>${v}</b><span>${l}</span></div>`).join("");
 
     const on = m => d.metric === m ? ' class="on"' : "";
     document.getElementById("table").innerHTML = d.rows.length === 0
       ? '<div class="empty">Пока нет водителей.</div>'
       : `<table><tr><th>#</th><th class="l">Водитель</th><th>Очки</th><th>Км</th><th>Зарплата</th>
          <th>Рейсы</th><th>Без царапин</th><th>Штрафы</th><th>Ур.</th><th>Достижения</th></tr>` +
-        d.rows.map(r => `<tr><td>${medal(r.place)}</td>
+        d.rows.map(r => `<tr class="driver${state.open === r.driverId ? " open" : ""}" data-id="${r.driverId}"><td>${medal(r.place)}</td>
           <td class="l">${esc(r.nickname)}${r.isAdmin ? " ★" : ""}<br><span class="rank">${esc(r.rankName)}</span></td>
           <td${on("score")}>${fmt(r.score)}</td><td${on("km")}>${fmt(r.km)}</td>
           <td${on("salary")}>€${fmt(r.salary)}</td><td${on("delivered")}>${r.delivered}</td>
           <td>${r.perfect}</td><td>${r.fines}</td><td>${r.level}</td>
-          <td>${r.achievements} / ${d.achievementsTotal}</td></tr>`).join("") + "</table>";
+          <td>${r.achievements} / ${d.achievementsTotal}</td></tr>` +
+          (state.open === r.driverId ? `<tr><td class="ach" colspan="10">${state.openHtml || "Загрузка…"}</td></tr>` : "")).join("") + "</table>";
   }
+
+  async function loadLive() {
+    const box = document.getElementById("live");
+    try {
+      const list = await (await fetch("/api/live")).json();
+      box.innerHTML = list.length === 0
+        ? '<div class="none">Сейчас никто не в рейсе.</div>'
+        : list.map(l => {
+            const t = l.trip, pct = Math.round(t.progress * 100);
+            const left = t.cargoLoaded ? `осталось ${fmt(t.remainingKm)} км · ${pct} %` : "едет за грузом";
+            return `<div class="card"><b>${esc(l.nickname)}</b> <small>${esc(l.rankName)}</small>
+              ${esc(t.cargoName)}, ${t.cargoMassT.toFixed(1)} т<br>${esc(t.from)} → ${esc(t.to)}
+              <div class="bar"><i style="width:${pct}%"></i></div>
+              <small>${left} · ${t.paused ? "пауза" : Math.round(t.speedKph) + " км/ч"}</small></div>`;
+          }).join("");
+    } catch { box.innerHTML = '<div class="none">Не удалось загрузить.</div>'; }
+  }
+
+  async function openDriver(id) {
+    state.open = state.open === id ? null : id;
+    state.openHtml = null;
+    load();
+    if (state.open === null) return;
+    try {
+      const a = await (await fetch(`/api/drivers/${id}/achievements`)).json();
+      const got = a.items.filter(i => i.unlocked);
+      state.openHtml = got.length === 0
+        ? "Пока нет достижений."
+        : `<b>${got.length} из ${a.total}</b><br>` + got.map(i =>
+            `<span class="chip" title="${esc(i.description)}">${i.icon} ${esc(i.title)}</span>`).join("");
+    } catch { state.openHtml = "Не удалось загрузить."; }
+    load();
+  }
+
+  document.getElementById("table").addEventListener("click", e => {
+    const row = e.target.closest("tr.driver");
+    if (row) openDriver(Number(row.dataset.id));
+  });
 
   pick("period", "period");
   pick("metric", "metric");
   load();
+  loadLive();
   setInterval(load, 30000);
+  setInterval(loadLive, 15000);
 </script>
 </body>
 </html>

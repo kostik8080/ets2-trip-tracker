@@ -250,6 +250,7 @@ public partial class MainWindow : Window
         bool live = f != null && f.SdkActive && DateTime.Now - tracker.LastFrameAt <= TimeSpan.FromSeconds(5);
         UpdateProgress(live ? tracker.Current : null, f);
         _overlay.Update(live, f, live ? tracker.Current : null);
+        PublishLive(live ? tracker.Current : null, f);
 
         if (_s.TelemetryError != null && _demoTracker == null)
             SetStatus("Нет связи с телеметрией", "BadBrush", _s.TelemetryError);

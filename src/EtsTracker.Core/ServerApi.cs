@@ -183,9 +183,36 @@ public sealed record Leaderboard
     public string Period { get; init; } = "";
     public string Metric { get; init; } = "";
     public int AchievementsTotal { get; init; }
+    /// <summary>Общий счёт компании за всё время, в любом периоде один и тот же.</summary>
+    public double CompanyAccount { get; init; }
     public double TotalKm { get; init; }
     public double TotalTonnes { get; init; }
     public double TotalSalary { get; init; }
     public int TotalDelivered { get; init; }
     public List<LeaderboardRow> Rows { get; init; } = new();
 }
+
+/// <summary>Достижение водителя в рейтинге.</summary>
+public sealed record AchievementInfo(
+    string Id, string Icon, string Title, string Description,
+    bool Unlocked, DateTime? UnlockedAt, double Current, double Target, string Unit);
+
+public sealed record DriverAchievements(
+    long DriverId, string Nickname, int Unlocked, int Total, List<AchievementInfo> Items);
+
+/// <summary>Что трекер сообщает о текущем рейсе раз в несколько секунд.</summary>
+public sealed record LiveTripUpdate
+{
+    public string CargoName { get; init; } = "";
+    public double CargoMassT { get; init; }
+    public string From { get; init; } = "";
+    public string To { get; init; } = "";
+    public bool CargoLoaded { get; init; }
+    public double Progress { get; init; }
+    public double RemainingKm { get; init; }
+    public double SpeedKph { get; init; }
+    public bool Paused { get; init; }
+}
+
+/// <summary>Водитель, который сейчас в рейсе.</summary>
+public sealed record LiveTrip(long DriverId, string Nickname, string RankName, LiveTripUpdate Trip, DateTime UpdatedAt);

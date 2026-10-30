@@ -180,6 +180,12 @@ public sealed class CompanySettings
     public int ManyTripsPerDay { get; set; } = 4;
     public double ManyTripsBonusPercent { get; set; } = 0.04;
 
+    /// <summary>
+    /// Общий счёт компании (лист «Сотрудники», A2): доставки + 70 % премий − литры топлива × эта цена.
+    /// В таблице топливо делится пополам, то есть литр стоит 0,5.
+    /// </summary>
+    public double CompanyAccountFuelPerLiter { get; set; } = 0.5;
+
     /// <summary>Условия повышения (лист «Стоимость», «Для класса»).</summary>
     public List<RankRequirement> RankRequirements { get; set; } = new()
     {

@@ -343,6 +343,16 @@ public sealed class TripRepository
         tx.Commit();
     }
 
+    /// <summary>Водитель подключился к другому серверу: там его рейсов ещё нет, отправлять нужно заново.</summary>
+    public void ResetSynced(long driverId)
+    {
+        using var c = Open();
+        using var cmd = c.CreateCommand();
+        cmd.CommandText = "UPDATE trips SET synced_at = '' WHERE driver_id = $id;";
+        cmd.Parameters.AddWithValue("$id", driverId);
+        cmd.ExecuteNonQuery();
+    }
+
     public void DeleteTrip(long id)
     {
         using var c = Open();

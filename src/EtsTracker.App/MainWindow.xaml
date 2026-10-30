@@ -289,6 +289,62 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+                            <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="СЕЙЧАС В РЕЙСЕ" Style="{StaticResource CardTitle}"/>
+                                    <TextBlock x:Name="LiveEmptyText" Text="Сейчас никто не в рейсе." Style="{StaticResource Muted}"/>
+                                    <ItemsControl x:Name="LiveList">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Width="280" Margin="0,4,10,4" Padding="10,8" CornerRadius="6"
+                                                        Background="{StaticResource PageBrush}">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Nickname}" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Cargo}" TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Text="{Binding Route}" TextTrimming="CharacterEllipsis"/>
+                                                        <ProgressBar Value="{Binding Percent, Mode=OneWay}" Maximum="100" Margin="0,5,0,3"/>
+                                                        <TextBlock Text="{Binding Status}" FontSize="12" Style="{StaticResource Muted}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Достижения выбранного водителя -->
+                            <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,10,0,0" MaxHeight="150">
+                                <DockPanel>
+                                    <TextBlock x:Name="RatingAchTitle" DockPanel.Dock="Top" FontWeight="SemiBold" Margin="0,0,0,4"
+                                               Text="Выберите водителя в таблице, чтобы увидеть его достижения."/>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl x:Name="RatingAchList">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,2,6,2" Padding="8,3" CornerRadius="10" ToolTip="{Binding Tip}"
+                                                            Background="{StaticResource AccentLightBrush}">
+                                                        <TextBlock FontSize="12">
+                                                            <Run Text="{Binding Icon, Mode=OneWay}" FontFamily="Segoe UI Emoji"/>
+                                                            <Run Text="{Binding Title, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
+
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
                                 <ComboBox x:Name="RatingPeriodBox" Width="120" Margin="0,0,8,0" SelectionChanged="OnRatingFilterChanged">
                                     <ComboBoxItem Content="Неделя" Tag="week"/>
@@ -303,9 +359,19 @@
                                 </ComboBox>
                                 <TextBlock x:Name="RatingTotalsText" VerticalAlignment="Center" Style="{StaticResource Muted}"/>
                             </StackPanel>
-                            <DataGrid x:Name="RatingGrid" RowHeight="30">
+                            <DataGrid x:Name="RatingGrid" RowHeight="30" SelectionChanged="OnRatingDriverSelected">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Binding="{Binding Place}" Width="36"/>
+                                    <DataGridTemplateColumn Header="#" Width="44">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <!-- Медаль: цветной кружок с местом (цветные эмодзи WPF не рисует) -->
+                                                <Border Width="22" Height="22" CornerRadius="11" Background="{Binding MedalBrush}">
+                                                    <TextBlock Text="{Binding Place}" FontWeight="Bold" HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" Foreground="{Binding PlaceBrush}"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Header="Водитель" Binding="{Binding Nickname}" Width="*" MinWidth="130"/>
                                     <DataGridTextColumn Header="Ранг" Binding="{Binding Rank}" Width="140"/>
                                     <DataGridTextColumn Header="Очки" Binding="{Binding Score}" Width="70" ElementStyle="{StaticResource NumberCell}"/>
