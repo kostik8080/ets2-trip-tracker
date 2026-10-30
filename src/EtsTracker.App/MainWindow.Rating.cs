@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -58,6 +59,24 @@ public partial class MainWindow
 
         // Вход сделан до появления этой отметки: рейсы отправлены на текущий сервер
         if (_s.Server.SyncedTo.TryAdd(_driver.Id, _s.Server.Url)) _s.SaveServer();
+        // Рейтинг открыт и без входа, поэтому вход проверяем отдельно. Заодно узнаём актуальную роль
+        try
+        {
+            var me = await new ServerClient(_s.Server.Url, account.Token).GetMeAsync();
+            if (account.IsAdmin != me.IsAdmin || account.Nickname != me.Nickname)
+            {
+                account.IsAdmin = me.IsAdmin;
+                account.Nickname = me.Nickname;
+                _s.SaveServer();
+            }
+        }
+        catch (ServerException ex) when (ex.Unauthorized)
+        {
+            await HandleLoggedOutAsync();
+            return;
+        }
+        catch (ServerException) { /* нет связи — покажем, что есть */ }
+
         ServerAccountText.Text = $"Вы вошли как {account.Nickname} · {_s.Server.Url}";
         InvitePanel.Visibility = account.IsAdmin ? Visibility.Visible : Visibility.Collapsed;
         InviteCodeBox.Visibility = Visibility.Collapsed;
@@ -264,8 +283,8 @@ public partial class MainWindow
             RatingGrid.ItemsSource = rows;
             RatingGrid.SelectedItem = rows.FirstOrDefault(r => r.R.DriverId == keep);
             RatingTotalsText.Text = $"Общий счёт {board.CompanyName}: €{board.CompanyAccount:N0} · " +
-                                    $"за период {board.TotalDelivered:N0} рейсов · {board.TotalKm:N0} км · " +
-                                    $"{board.TotalTonnes:N0} т · зарплата €{board.TotalSalary:N0}";
+                                    $"за период {Plural(board.TotalDelivered, "рейс", "рейса", "рейсов")} · {board.TotalKm:N0} км · " +
+                                    $"{board.TotalTonnes:N0} т · зарплата €{board.TotalSalary:N0} · премии €{board.TotalBonus:N0}";
         }
         catch (ServerException ex) when (!ex.Unauthorized)
         {
@@ -277,6 +296,7 @@ public partial class MainWindow
     {
         if (RatingGrid.SelectedItem is not RatingRow row || Account is not { } account) return;
         _ratingDriverId = row.R.DriverId;
+        await LoadPremiumsAsync(row);
         try
         {
             var a = await new ServerClient(_s.Server.Url, account.Token).GetDriverAchievementsAsync(row.R.DriverId);
@@ -290,6 +310,86 @@ public partial class MainWindow
         {
             RatingAchTitle.Text = ex.Message;
         }
+    }
+
+    // ───────────────────────────── Премии ─────────────────────────────
+
+    private async Task LoadPremiumsAsync(RatingRow row)
+    {
+        if (Account is not { } account) return;
+        PremiumForm.Visibility = account.IsAdmin ? Visibility.Visible : Visibility.Collapsed;
+        try
+        {
+            var list = await new ServerClient(_s.Server.Url, account.Token).GetBonusesAsync(row.R.DriverId);
+            PremiumTitle.Text = list.Count == 0
+                ? $"Премии {row.R.Nickname}: пока нет"
+                : $"Премии {row.R.Nickname}: €{list.Sum(b => b.Amount):N0} за всё время";
+            PremiumList.ItemsSource = list.Select(b => new PremiumRow(b, account.IsAdmin)).ToList();
+        }
+        catch (ServerException ex)
+        {
+            PremiumTitle.Text = ex.Message;
+        }
+    }
+
+    private async void OnAddPremium(object sender, RoutedEventArgs e)
+    {
+        if (RatingGrid.SelectedItem is not RatingRow row || Account is not { IsAdmin: true } account) return;
+        PremiumError.Visibility = Visibility.Collapsed;
+        var text = PremiumAmountBox.Text.Replace(" ", "").Replace("\u00A0", "").Replace(',', '.');
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var amount) || amount <= 0)
+        {
+            ShowPremiumError("Введите сумму премии.");
+            return;
+        }
+        var reason = PremiumReasonBox.Text.Trim();
+        if (reason.Length == 0)
+        {
+            ShowPremiumError("Напишите, за что премия.");
+            return;
+        }
+        try
+        {
+            await new ServerClient(_s.Server.Url, account.Token).AddBonusAsync(new BonusRequest(row.R.DriverId, amount, reason));
+            PremiumAmountBox.Clear();
+            PremiumReasonBox.Clear();
+            AddNotice($"💶 Премия {row.R.Nickname}: €{amount:N0}");
+            await LoadLeaderboardAsync();
+        }
+        catch (ServerException ex)
+        {
+            ShowPremiumError(ex.Message);
+        }
+    }
+
+    private async void OnCancelPremium(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not PremiumRow premium || Account is not { IsAdmin: true } account) return;
+        var answer = MessageBox.Show(this, $"Отменить премию €{premium.B.Amount:N0} «{premium.B.Reason}»?",
+            "Отмена премии", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+        try
+        {
+            await new ServerClient(_s.Server.Url, account.Token).CancelBonusAsync(premium.B.Id);
+            await LoadLeaderboardAsync();
+        }
+        catch (ServerException ex)
+        {
+            ShowPremiumError(ex.Message);
+        }
+    }
+
+    private void ShowPremiumError(string text)
+    {
+        PremiumError.Text = text;
+        PremiumError.Visibility = Visibility.Visible;
+    }
+
+    private sealed record PremiumRow(BonusEntry B, bool CanCancel)
+    {
+        public string Amount => $"€{B.Amount:N0}";
+        public string Details => $"{B.Reason} · {B.CreatedAt.ToLocalTime():dd.MM.yyyy} · {B.CreatedBy}";
+        public Visibility CancelVisibility => CanCancel ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private sealed record RatingAchRow(AchievementInfo I)
@@ -343,6 +443,7 @@ public partial class MainWindow
         public string Score => R.Score.ToString("N0");
         public string Km => R.Km.ToString("N0");
         public string Salary => $"€{R.Salary:N0}";
+        public string Bonus => $"€{R.Bonus:N0}";
         public string Delivered => R.Delivered.ToString();
         public string Perfect => R.Perfect.ToString();
         public string Fines => R.Fines.ToString();

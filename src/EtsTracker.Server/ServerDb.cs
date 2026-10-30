@@ -93,6 +93,19 @@ public sealed class ServerDb
                         UNIQUE (driver_id, client_id)
                     );
                     CREATE INDEX IF NOT EXISTS trips_finished ON trips (finished_at);
+
+                    CREATE TABLE IF NOT EXISTS bonuses (
+                        id         BIGSERIAL PRIMARY KEY,
+                        driver_id  BIGINT NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+                        amount     DOUBLE PRECISION NOT NULL,
+                        reason     TEXT NOT NULL,
+                        created_by BIGINT REFERENCES drivers(id) ON DELETE SET NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                        -- Отмена не стирает запись: это деньги, история должна остаться
+                        deleted_by BIGINT REFERENCES drivers(id) ON DELETE SET NULL,
+                        deleted_at TIMESTAMPTZ
+                    );
+                    CREATE INDEX IF NOT EXISTS bonuses_driver ON bonuses (driver_id);
                     """);
                 await cmd.ExecuteNonQueryAsync();
                 return;
@@ -265,6 +278,50 @@ public sealed class ServerDb
         await using var cmd = _source.CreateCommand(
             "SELECT code FROM invites WHERE is_admin AND used_at IS NULL AND created_by IS NULL LIMIT 1;");
         return await cmd.ExecuteScalarAsync() as string;
+    }
+
+    // ───────────────────────────── Премии ─────────────────────────────
+
+    public async Task<BonusEntry> AddBonusAsync(BonusRequest req, Driver admin)
+    {
+        await using var cmd = _source.CreateCommand("""
+            INSERT INTO bonuses (driver_id, amount, reason, created_by) VALUES ($1, $2, $3, $4)
+            RETURNING id, created_at;
+            """);
+        cmd.Parameters.AddWithValue(req.DriverId);
+        cmd.Parameters.AddWithValue(req.Amount);
+        cmd.Parameters.AddWithValue(req.Reason.Trim());
+        cmd.Parameters.AddWithValue(admin.Id);
+        await using var r = await cmd.ExecuteReaderAsync();
+        await r.ReadAsync();
+        return new BonusEntry(r.GetInt64(0), req.DriverId, req.Amount, req.Reason.Trim(), r.GetDateTime(1), admin.Nickname);
+    }
+
+    /// <summary>Действующие премии (отменённые не входят); без номера водителя — все.</summary>
+    public async Task<List<BonusEntry>> GetBonusesAsync(long? driverId = null)
+    {
+        await using var cmd = _source.CreateCommand("""
+            SELECT b.id, b.driver_id, b.amount, b.reason, b.created_at, COALESCE(a.nickname, '')
+            FROM bonuses b LEFT JOIN drivers a ON a.id = b.created_by
+            WHERE b.deleted_at IS NULL AND ($1::bigint IS NULL OR b.driver_id = $1)
+            ORDER BY b.created_at DESC, b.id DESC;
+            """);
+        cmd.Parameters.Add(new NpgsqlParameter<long?> { TypedValue = driverId, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Bigint });
+        await using var r = await cmd.ExecuteReaderAsync();
+        var list = new List<BonusEntry>();
+        while (await r.ReadAsync())
+            list.Add(new BonusEntry(r.GetInt64(0), r.GetInt64(1), r.GetDouble(2), r.GetString(3), r.GetDateTime(4), r.GetString(5)));
+        return list;
+    }
+
+    /// <summary>Отменяет премию. false — такой нет или она уже отменена.</summary>
+    public async Task<bool> CancelBonusAsync(long id, long adminId)
+    {
+        await using var cmd = _source.CreateCommand(
+            "UPDATE bonuses SET deleted_at = now(), deleted_by = $1 WHERE id = $2 AND deleted_at IS NULL;");
+        cmd.Parameters.AddWithValue(adminId);
+        cmd.Parameters.AddWithValue(id);
+        return await cmd.ExecuteNonQueryAsync() == 1;
     }
 
     // ────────────────────────────── Рейсы ──────────────────────────────

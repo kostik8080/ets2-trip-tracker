@@ -90,6 +90,16 @@ public sealed class ServerClient
         using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Delete, "api/live"));
     }
 
+    public Task<BonusEntry> AddBonusAsync(BonusRequest req) => PostAsync<BonusEntry>("api/bonuses", req);
+
+    public Task<List<BonusEntry>> GetBonusesAsync(long driverId)
+        => SendAsync<List<BonusEntry>>(new HttpRequestMessage(HttpMethod.Get, $"api/drivers/{driverId}/bonuses"));
+
+    public async Task CancelBonusAsync(long id)
+    {
+        using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/bonuses/{id}"));
+    }
+
     public Task<ServerDriver> GetMeAsync() => SendAsync<ServerDriver>(new HttpRequestMessage(HttpMethod.Get, "api/me"));
 
     /// <summary>Закрывает вход на сервере. Если сервер недоступен, токен просто забудется на этом компьютере.</summary>

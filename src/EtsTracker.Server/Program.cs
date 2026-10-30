@@ -145,6 +145,32 @@ app.MapPost("/api/trips", async (HttpContext ctx, List<TripUpload> uploads) =>
     return Results.Ok(new TripUploadResult(accepted, duplicates, saved, rejected));
 });
 
+// ───────────────────────────── Премии ─────────────────────────────
+
+app.MapPost("/api/bonuses", async (HttpContext ctx, BonusRequest req) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Премии начисляет администратор.", StatusCodes.Status403Forbidden);
+    if (req.Amount is <= 0 or > 10_000_000) return Error("Сумма — от 0 до 10 000 000.");
+    var reason = req.Reason?.Trim() ?? "";
+    if (reason.Length is 0 or > 200) return Error("Укажите, за что премия (до 200 символов).");
+    if ((await db.GetDriversAsync()).All(d => d.Id != req.DriverId)) return Error("Водитель не найден.", StatusCodes.Status404NotFound);
+    return Results.Ok(await db.AddBonusAsync(req, admin));
+});
+
+// Причины премий видны только вошедшим: страница рейтинга открыта всем
+app.MapGet("/api/drivers/{id:long}/bonuses", async (HttpContext ctx, long id) =>
+    await CurrentDriver(ctx) == null ? NotLoggedIn() : Results.Ok(await db.GetBonusesAsync(id)));
+
+app.MapDelete("/api/bonuses/{id:long}", async (HttpContext ctx, long id) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Премии отменяет администратор.", StatusCodes.Status403Forbidden);
+    return await db.CancelBonusAsync(id, admin.Id) ? Results.NoContent() : Error("Премия не найдена.", StatusCodes.Status404NotFound);
+});
+
 // ──────────────────────────── Сейчас в рейсе ───────────────────────────
 
 // Только в памяти: это мгновенное состояние, после перезапуска сервера трекеры пришлют его снова
@@ -205,7 +231,7 @@ app.MapGet("/api/drivers/{id:long}/achievements", async (long id) =>
 app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
 {
     period = period is "week" or "month" or "all" ? period : "month";
-    metric = metric is "score" or "km" or "salary" or "delivered" ? metric : "score";
+    metric = metric is "score" or "km" or "salary" or "bonus" or "delivered" ? metric : "score";
 
     var now = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, timeZone);
     DateTime? since = period switch
@@ -219,6 +245,8 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
     var allTrips = await db.GetAllTripsAsync();
     var byDriver = allTrips.ToLookup(t => t.DriverId);
     var allTime = DriverStats.Compute(allTrips);
+    var bonuses = await db.GetBonusesAsync();
+    var bonusByDriver = bonuses.Where(b => since == null || b.CreatedAt >= since).ToLookup(b => b.DriverId);
 
     var rows = drivers.Select(d =>
     {
@@ -237,6 +265,7 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
             Tonnes = s.Tonnes,
             Score = s.Score,
             Salary = s.Salary,
+            Bonus = bonusByDriver[d.Id].Sum(b => b.Amount),
             Perfect = s.Perfect,
             Fines = s.Fines,
             Level = DriverLevel.From(all.Sum(t => (long)t.Score)).Level,
@@ -248,6 +277,7 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
     {
         "km" => r => r.Km,
         "salary" => r => r.Salary,
+        "bonus" => r => r.Bonus,
         "delivered" => r => r.Delivered,
         _ => r => r.Score,
     };
@@ -261,10 +291,12 @@ app.MapGet("/api/leaderboard", async (string? period, string? metric) =>
         Period = period,
         Metric = metric,
         AchievementsTotal = Achievements.All.Count,
-        CompanyAccount = allTime.Salary - allTime.FuelL * company.CompanyAccountFuelPerLiter,
+        CompanyAccount = allTime.Salary + bonuses.Sum(b => b.Amount) * company.CompanyAccountBonusShare
+                         - allTime.FuelL * company.CompanyAccountFuelPerLiter,
         TotalKm = sorted.Sum(r => r.Km),
         TotalTonnes = sorted.Sum(r => r.Tonnes),
         TotalSalary = sorted.Sum(r => r.Salary),
+        TotalBonus = sorted.Sum(r => r.Bonus),
         TotalDelivered = sorted.Sum(r => r.Delivered),
         Rows = sorted,
     });

@@ -67,6 +67,7 @@
       <button data-v="score">Очки</button>
       <button data-v="km">Км</button>
       <button data-v="salary">Зарплата</button>
+      <button data-v="bonus">Премии</button>
       <button data-v="delivered">Рейсы</button>
     </div>
   </div>
@@ -108,21 +109,21 @@
     document.getElementById("totals").innerHTML = [
       ["€" + fmt(d.companyAccount), "общий счёт компании", "account"],
       [fmt(d.totalDelivered), "рейсов"], [fmt(d.totalKm), "км"],
-      [fmt(d.totalTonnes), "тонн"], ["€" + fmt(d.totalSalary), "зарплата ВТК"],
+      [fmt(d.totalTonnes), "тонн"], ["€" + fmt(d.totalSalary), "зарплата ВТК"], ["€" + fmt(d.totalBonus), "премии"],
     ].map(([v, l, c]) => `<div class="total ${c || ""}"><b>${v}</b><span>${l}</span></div>`).join("");
 
     const on = m => d.metric === m ? ' class="on"' : "";
     document.getElementById("table").innerHTML = d.rows.length === 0
       ? '<div class="empty">Пока нет водителей.</div>'
-      : `<table><tr><th>#</th><th class="l">Водитель</th><th>Очки</th><th>Км</th><th>Зарплата</th>
+      : `<table><tr><th>#</th><th class="l">Водитель</th><th>Очки</th><th>Км</th><th>Зарплата</th><th>Премии</th>
          <th>Рейсы</th><th>Без царапин</th><th>Штрафы</th><th>Ур.</th><th>Достижения</th></tr>` +
         d.rows.map(r => `<tr class="driver${state.open === r.driverId ? " open" : ""}" data-id="${r.driverId}"><td>${medal(r.place)}</td>
           <td class="l">${esc(r.nickname)}${r.isAdmin ? " ★" : ""}<br><span class="rank">${esc(r.rankName)}</span></td>
           <td${on("score")}>${fmt(r.score)}</td><td${on("km")}>${fmt(r.km)}</td>
-          <td${on("salary")}>€${fmt(r.salary)}</td><td${on("delivered")}>${r.delivered}</td>
+          <td${on("salary")}>€${fmt(r.salary)}</td><td${on("bonus")}>€${fmt(r.bonus)}</td><td${on("delivered")}>${r.delivered}</td>
           <td>${r.perfect}</td><td>${r.fines}</td><td>${r.level}</td>
           <td>${r.achievements} / ${d.achievementsTotal}</td></tr>` +
-          (state.open === r.driverId ? `<tr><td class="ach" colspan="10">${state.openHtml || "Загрузка…"}</td></tr>` : "")).join("") + "</table>";
+          (state.open === r.driverId ? `<tr><td class="ach" colspan="11">${state.openHtml || "Загрузка…"}</td></tr>` : "")).join("") + "</table>";
   }
 
   async function loadLive() {

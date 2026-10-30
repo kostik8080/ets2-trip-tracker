@@ -171,6 +171,8 @@ public sealed record LeaderboardRow
     public double Tonnes { get; init; }
     public long Score { get; init; }
     public double Salary { get; init; }
+    /// <summary>Премии, начисленные администратором за период.</summary>
+    public double Bonus { get; init; }
     public int Perfect { get; init; }
     public int Fines { get; init; }
     public int Level { get; init; }
@@ -188,6 +190,7 @@ public sealed record Leaderboard
     public double TotalKm { get; init; }
     public double TotalTonnes { get; init; }
     public double TotalSalary { get; init; }
+    public double TotalBonus { get; init; }
     public int TotalDelivered { get; init; }
     public List<LeaderboardRow> Rows { get; init; } = new();
 }
@@ -216,3 +219,8 @@ public sealed record LiveTripUpdate
 
 /// <summary>Водитель, который сейчас в рейсе.</summary>
 public sealed record LiveTrip(long DriverId, string Nickname, string RankName, LiveTripUpdate Trip, DateTime UpdatedAt);
+
+/// <summary>Премия, которую администратор начисляет водителю.</summary>
+public sealed record BonusRequest(long DriverId, double Amount, string Reason);
+
+public sealed record BonusEntry(long Id, long DriverId, double Amount, string Reason, DateTime CreatedAt, string CreatedBy);
