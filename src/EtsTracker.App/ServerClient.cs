@@ -100,6 +100,31 @@ public sealed class ServerClient
         using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Delete, $"api/bonuses/{id}"));
     }
 
+    public Task<List<ServerTrip>> GetMyTripsAsync()
+        => SendAsync<List<ServerTrip>>(new HttpRequestMessage(HttpMethod.Get, "api/trips/mine"));
+
+    public Task<List<ServerTrip>> GetTripsAsync(TripApproval approval)
+        => SendAsync<List<ServerTrip>>(new HttpRequestMessage(HttpMethod.Get, $"api/trips?approval={approval}"));
+
+    public async Task ReviewTripAsync(long id, TripReview review)
+    {
+        using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Post, $"api/trips/{id}/review")
+        {
+            Content = JsonContent.Create(review, options: ApiJson.Options),
+        });
+    }
+
+    public Task<List<ServerDriverInfo>> GetDriversAsync()
+        => SendAsync<List<ServerDriverInfo>>(new HttpRequestMessage(HttpMethod.Get, "api/drivers"));
+
+    public async Task UpdateDriverAsync(long id, DriverUpdate update)
+    {
+        using var _ = await SendRawAsync(new HttpRequestMessage(HttpMethod.Put, $"api/drivers/{id}")
+        {
+            Content = JsonContent.Create(update, options: ApiJson.Options),
+        });
+    }
+
     public Task<ServerDriver> GetMeAsync() => SendAsync<ServerDriver>(new HttpRequestMessage(HttpMethod.Get, "api/me"));
 
     /// <summary>Закрывает вход на сервере. Если сервер недоступен, токен просто забудется на этом компьютере.</summary>

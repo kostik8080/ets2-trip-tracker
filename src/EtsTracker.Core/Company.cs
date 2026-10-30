@@ -185,6 +185,9 @@ public sealed class CompanySettings
     /// В таблице топливо делится пополам, то есть литр стоит 0,5.
     /// </summary>
     public double CompanyAccountFuelPerLiter { get; set; } = 0.5;
+    /// <summary>Рейсы водителей попадают в рейтинг только после подтверждения администратором.</summary>
+    public bool RequireTripApproval { get; set; } = true;
+
     /// <summary>Какая доля премий идёт в общий счёт (в таблице — 70 %).</summary>
     public double CompanyAccountBonusShare { get; set; } = 0.7;
 

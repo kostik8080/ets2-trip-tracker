@@ -224,3 +224,45 @@ public sealed record LiveTrip(long DriverId, string Nickname, string RankName, L
 public sealed record BonusRequest(long DriverId, double Amount, string Reason);
 
 public sealed record BonusEntry(long Id, long DriverId, double Amount, string Reason, DateTime CreatedAt, string CreatedBy);
+
+public enum TripApproval
+{
+    Pending,    // ждёт проверки
+    Approved,   // принят, идёт в рейтинг
+    Rejected,   // отклонён
+}
+
+/// <summary>Рейс на сервере — для проверки администратором и для самого водителя.</summary>
+public sealed record ServerTrip
+{
+    public long Id { get; init; }
+    public long DriverId { get; init; }
+    public string Nickname { get; init; } = "";
+    public TripApproval Approval { get; init; }
+    public TripStatus Status { get; init; }
+    public TripKind Kind { get; init; }
+    public CargoClass CargoClass { get; init; }
+    public DateTime FinishedAt { get; init; }
+    public string CargoName { get; init; } = "";
+    public double CargoMassT { get; init; }
+    public string From { get; init; } = "";
+    public string To { get; init; } = "";
+    public double DistanceKm { get; init; }
+    public double CargoDamage { get; init; }
+    public int FinesCount { get; init; }
+    public bool StartedMidJob { get; init; }
+    public int Score { get; init; }
+    public string Grade { get; init; } = "";
+    public double Salary { get; init; }
+    public string ReviewNote { get; init; } = "";
+    public string ReviewedBy { get; init; } = "";
+}
+
+/// <summary>Решение по рейсу. Тип поездки и класс груза можно поправить: «Важный» и «Срочный» игра не сообщает.</summary>
+public sealed record TripReview(bool Approve, TripKind? Kind = null, CargoClass? CargoClass = null, string? Note = null);
+
+public sealed record ServerDriverInfo(
+    long Id, string Nickname, DriverRank Rank, string RankName,
+    bool PermitAdr, bool PermitHeavy, bool PermitArticulated, bool IsAdmin);
+
+public sealed record DriverUpdate(DriverRank Rank, bool PermitAdr, bool PermitHeavy, bool PermitArticulated, bool IsAdmin);

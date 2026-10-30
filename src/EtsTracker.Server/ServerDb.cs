@@ -94,6 +94,13 @@ public sealed class ServerDb
                     );
                     CREATE INDEX IF NOT EXISTS trips_finished ON trips (finished_at);
 
+                    -- Рейсы, присланные до появления проверки, считаются принятыми
+                    ALTER TABLE trips ADD COLUMN IF NOT EXISTS approval TEXT NOT NULL DEFAULT 'Approved';
+                    ALTER TABLE trips ADD COLUMN IF NOT EXISTS review_note TEXT NOT NULL DEFAULT '';
+                    ALTER TABLE trips ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES drivers(id) ON DELETE SET NULL;
+                    ALTER TABLE trips ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+                    CREATE INDEX IF NOT EXISTS trips_approval ON trips (approval);
+
                     CREATE TABLE IF NOT EXISTS bonuses (
                         id         BIGSERIAL PRIMARY KEY,
                         driver_id  BIGINT NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
@@ -140,6 +147,22 @@ public sealed class ServerDb
         IsAdmin = r.GetBoolean(6),
         CreatedAt = r.GetDateTime(7),
     };
+
+    /// <summary>Меняет ранг, допуски и роль. Новый ранг действует на следующие рейсы; принятые не пересчитываются.</summary>
+    public async Task UpdateDriverAsync(long id, DriverUpdate u)
+    {
+        await using var cmd = _source.CreateCommand("""
+            UPDATE drivers SET rank = $1, permit_adr = $2, permit_heavy = $3, permit_articulated = $4, is_admin = $5
+            WHERE id = $6;
+            """);
+        cmd.Parameters.AddWithValue(u.Rank.ToString());
+        cmd.Parameters.AddWithValue(u.PermitAdr);
+        cmd.Parameters.AddWithValue(u.PermitHeavy);
+        cmd.Parameters.AddWithValue(u.PermitArticulated);
+        cmd.Parameters.AddWithValue(u.IsAdmin);
+        cmd.Parameters.AddWithValue(id);
+        await cmd.ExecuteNonQueryAsync();
+    }
 
     public async Task<List<Driver>> GetDriversAsync()
     {
@@ -330,7 +353,8 @@ public sealed class ServerDb
     {
         await using var cmd = _source.CreateCommand("""
             SELECT COUNT(*) FROM trips
-            WHERE driver_id = $1 AND status = 'Delivered' AND finished_at >= $2 AND finished_at < $3;
+            WHERE driver_id = $1 AND status = 'Delivered' AND approval <> 'Rejected'
+              AND finished_at >= $2 AND finished_at < $3;
             """);
         cmd.Parameters.AddWithValue(driverId);
         cmd.Parameters.AddWithValue(from);
@@ -339,7 +363,7 @@ public sealed class ServerDb
     }
 
     /// <summary>Сохраняет рейс. false — такой рейс этого водителя уже есть (повторная отправка).</summary>
-    public async Task<bool> SaveTripAsync(TripResult t)
+    public async Task<bool> SaveTripAsync(TripResult t, TripApproval approval)
     {
         await using var cmd = _source.CreateCommand("""
             INSERT INTO trips (client_id, driver_id, status, kind, cargo_class, started_at, finished_at,
@@ -347,9 +371,9 @@ public sealed class ServerDb
                 from_city_id, to_city_id, truck, trailer_count, job_distance_km, driven_km, fuel_used_l,
                 revenue, earned_xp, cargo_damage, truck_damage, trailer_damage, auto_parked,
                 fines_count, fines_total, tolls_total, speeding_seconds, max_speed_kph, started_mid_job,
-                score, grade, breakdown_json, salary, salary_json)
+                score, grade, breakdown_json, salary, salary_json, approval)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
-                $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
+                $25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
             ON CONFLICT (driver_id, client_id) DO NOTHING;
             """);
         var p = cmd.Parameters;
@@ -391,17 +415,115 @@ public sealed class ServerDb
         p.AddWithValue(JsonSerializer.Serialize(t.Breakdown, ConfigStore.Json));
         p.AddWithValue(t.Salary);
         p.AddWithValue(JsonSerializer.Serialize(t.SalaryBreakdown, ConfigStore.Json));
+        p.AddWithValue(approval.ToString());
         return await cmd.ExecuteNonQueryAsync() == 1;
     }
 
-    /// <summary>Все рейсы компании — для рейтинга и достижений.</summary>
+    /// <summary>Рейсы для проверки или для самого водителя, новые первыми.</summary>
+    public async Task<List<ServerTrip>> GetServerTripsAsync(TripApproval? approval, long? driverId, int limit)
+    {
+        await using var cmd = _source.CreateCommand("""
+            SELECT t.id, t.driver_id, d.nickname, t.approval, t.status, t.kind, t.cargo_class, t.finished_at, t.cargo_name,
+                t.cargo_mass_t, t.from_place, t.to_place, t.job_distance_km, t.driven_km, t.cargo_damage, t.fines_count,
+                t.started_mid_job, t.score, t.grade, t.salary, t.review_note, COALESCE(r.nickname, '')
+            FROM trips t
+            JOIN drivers d ON d.id = t.driver_id
+            LEFT JOIN drivers r ON r.id = t.reviewed_by
+            WHERE ($1::text IS NULL OR t.approval = $1) AND ($2::bigint IS NULL OR t.driver_id = $2)
+            ORDER BY t.finished_at DESC, t.id DESC LIMIT $3;
+            """);
+        cmd.Parameters.Add(new NpgsqlParameter<string?> { TypedValue = approval?.ToString(), NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text });
+        cmd.Parameters.Add(new NpgsqlParameter<long?> { TypedValue = driverId, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Bigint });
+        cmd.Parameters.AddWithValue(limit);
+        await using var r = await cmd.ExecuteReaderAsync();
+        var list = new List<ServerTrip>();
+        while (await r.ReadAsync())
+        {
+            double job = r.GetDouble(12), driven = r.GetDouble(13);
+            list.Add(new ServerTrip
+            {
+                Id = r.GetInt64(0),
+                DriverId = r.GetInt64(1),
+                Nickname = r.GetString(2),
+                Approval = Enum.Parse<TripApproval>(r.GetString(3)),
+                Status = Enum.Parse<TripStatus>(r.GetString(4)),
+                Kind = Enum.Parse<TripKind>(r.GetString(5)),
+                CargoClass = Enum.Parse<CargoClass>(r.GetString(6)),
+                FinishedAt = r.GetDateTime(7),
+                CargoName = r.GetString(8),
+                CargoMassT = r.GetDouble(9),
+                From = r.GetString(10),
+                To = r.GetString(11),
+                DistanceKm = job > 0 ? job : driven,
+                CargoDamage = r.GetDouble(14),
+                FinesCount = r.GetInt32(15),
+                StartedMidJob = r.GetBoolean(16),
+                Score = r.GetInt32(17),
+                Grade = r.GetString(18),
+                Salary = r.GetDouble(19),
+                ReviewNote = r.GetString(20),
+                ReviewedBy = r.GetString(21),
+            });
+        }
+        return list;
+    }
+
+    /// <summary>Данные рейса, нужные для пересчёта зарплаты при правке класса груза.</summary>
+    public async Task<TripResult?> GetTripForPayAsync(long id)
+    {
+        await using var cmd = _source.CreateCommand("""
+            SELECT driver_id, status, kind, cargo_class, finished_at, cargo_mass_t, from_place, to_place,
+                from_city_id, to_city_id, job_distance_km, driven_km, revenue
+            FROM trips WHERE id = $1;
+            """);
+        cmd.Parameters.AddWithValue(id);
+        await using var r = await cmd.ExecuteReaderAsync();
+        if (!await r.ReadAsync()) return null;
+        return new TripResult
+        {
+            Id = id,
+            DriverId = r.GetInt64(0),
+            Status = Enum.Parse<TripStatus>(r.GetString(1)),
+            Kind = Enum.Parse<TripKind>(r.GetString(2)),
+            CargoClass = Enum.Parse<CargoClass>(r.GetString(3)),
+            FinishedAt = r.GetDateTime(4),
+            CargoMassT = r.GetDouble(5),
+            From = r.GetString(6),
+            To = r.GetString(7),
+            FromCityId = r.GetString(8),
+            ToCityId = r.GetString(9),
+            JobDistanceKm = r.GetDouble(10),
+            DrivenKm = r.GetDouble(11),
+            Revenue = r.GetInt64(12),
+        };
+    }
+
+    public async Task SaveReviewAsync(TripResult t, TripApproval approval, string note, long adminId)
+    {
+        await using var cmd = _source.CreateCommand("""
+            UPDATE trips SET approval = $1, review_note = $2, reviewed_by = $3, reviewed_at = now(),
+                kind = $4, cargo_class = $5, salary = $6, salary_json = $7
+            WHERE id = $8;
+            """);
+        cmd.Parameters.AddWithValue(approval.ToString());
+        cmd.Parameters.AddWithValue(note);
+        cmd.Parameters.AddWithValue(adminId);
+        cmd.Parameters.AddWithValue(t.Kind.ToString());
+        cmd.Parameters.AddWithValue(t.CargoClass.ToString());
+        cmd.Parameters.AddWithValue(t.Salary);
+        cmd.Parameters.AddWithValue(JsonSerializer.Serialize(t.SalaryBreakdown, ConfigStore.Json));
+        cmd.Parameters.AddWithValue(t.Id);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>Принятые рейсы компании — для рейтинга и достижений.</summary>
     public async Task<List<TripResult>> GetAllTripsAsync()
     {
         await using var cmd = _source.CreateCommand("""
             SELECT id, client_id, driver_id, status, kind, cargo_class, finished_at, cargo_mass_t, cargo_traits,
                 special_job, trailer_count, job_distance_km, driven_km, fuel_used_l, revenue, cargo_damage,
                 fines_count, speeding_seconds, score, grade, salary
-            FROM trips ORDER BY finished_at, id;
+            FROM trips WHERE approval = 'Approved' ORDER BY finished_at, id;
             """);
         await using var r = await cmd.ExecuteReaderAsync();
         var list = new List<TripResult>();

@@ -13,3 +13,4 @@ publish/
 
 # Пароли сервера
 .env
+/backups/

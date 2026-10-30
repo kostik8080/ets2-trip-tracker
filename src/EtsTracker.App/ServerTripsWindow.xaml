@@ -1,0 +1,59 @@
+<Window x:Class="EtsTracker.App.ServerTripsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Рейсы на сервере" Width="1100" Height="620"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock x:Name="HeaderText" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock x:Name="HintText" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+            <ComboBox x:Name="FilterBox" Width="190" HorizontalAlignment="Left" Margin="0,8,0,0" SelectionChanged="OnFilterChanged">
+                <ComboBoxItem Content="Ждут проверки" Tag="Pending"/>
+                <ComboBoxItem Content="Отклонённые" Tag="Rejected"/>
+                <ComboBoxItem Content="Принятые" Tag="Approved"/>
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Border x:Name="ReviewPanel" Style="{StaticResource Card}" Margin="0,0,0,10">
+                <StackPanel>
+                    <WrapPanel>
+                        <TextBlock Text="Тип поездки:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox x:Name="KindBox" Width="120" DisplayMemberPath="Name" SelectedValuePath="Value" Margin="0,0,14,0"/>
+                        <TextBlock Text="Класс груза:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox x:Name="ClassBox" Width="140" DisplayMemberPath="Name" SelectedValuePath="Value" Margin="0,0,14,0"/>
+                        <TextBlock Text="Комментарий:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBox x:Name="NoteBox" Width="300" MaxLength="300" VerticalContentAlignment="Center"
+                                 ToolTip="Обязателен, если рейс отклонён: водитель увидит его"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="ErrorText" Foreground="{StaticResource BadBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Visibility="Collapsed"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="ApproveButton" Content="Принять" Style="{StaticResource PrimaryButton}" Click="OnApprove"/>
+                        <Button x:Name="RejectButton" Content="Отклонить" Click="OnReject" Margin="0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Button Content="Закрыть" Click="OnClose" HorizontalAlignment="Right" Margin="0"/>
+        </StackPanel>
+
+        <Grid>
+            <DataGrid x:Name="TripsGrid" SelectionChanged="OnTripSelected">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Дата" Binding="{Binding Date}" Width="92"/>
+                    <DataGridTextColumn Header="Водитель" Binding="{Binding Nickname}" Width="110"/>
+                    <DataGridTextColumn Header="Статус" Binding="{Binding State}" Width="130"/>
+                    <DataGridTextColumn Header="Груз" Binding="{Binding Cargo}" Width="*" MinWidth="110"/>
+                    <DataGridTextColumn Header="Маршрут" Binding="{Binding Route}" Width="*" MinWidth="130"/>
+                    <DataGridTextColumn Header="Км" Binding="{Binding Km}" Width="52" ElementStyle="{StaticResource NumberCell}"/>
+                    <DataGridTextColumn Header="Тип" Binding="{Binding Kind}" Width="92"/>
+                    <DataGridTextColumn Header="Класс" Binding="{Binding Class}" Width="100"/>
+                    <DataGridTextColumn Header="Очки" Binding="{Binding Score}" Width="60" ElementStyle="{StaticResource NumberCell}"/>
+                    <DataGridTextColumn Header="Зарплата" Binding="{Binding Salary}" Width="80" ElementStyle="{StaticResource NumberCell}"/>
+                </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock x:Name="EmptyText" Style="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Visibility="Collapsed"/>
+        </Grid>
+    </DockPanel>
+</Window>

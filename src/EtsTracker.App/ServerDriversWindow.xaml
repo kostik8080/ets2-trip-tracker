@@ -1,0 +1,42 @@
+<Window x:Class="EtsTracker.App.ServerDriversWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Водители на сервере" Width="820" Height="560"
+        Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="Водители на сервере" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
+                       Text="Новый ранг и допуски действуют на следующие рейсы и рейсы, которые ещё ждут проверки. Уже принятые не пересчитываются."/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                <StackPanel>
+                    <WrapPanel>
+                        <TextBlock Text="Ранг:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <ComboBox x:Name="RankBox" Width="180" DisplayMemberPath="Name" SelectedValuePath="Value" Margin="0,0,16,0"/>
+                        <CheckBox x:Name="AdrBox" Content="ADR" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <CheckBox x:Name="HeavyBox" Content="Тяжёлые" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <CheckBox x:Name="ArticulatedBox" Content="Сочленённые" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                        <CheckBox x:Name="AdminBox" Content="Администратор" VerticalAlignment="Center"/>
+                    </WrapPanel>
+                    <TextBlock x:Name="ErrorText" Foreground="{StaticResource BadBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Visibility="Collapsed"/>
+                    <Button x:Name="SaveButton" Content="Сохранить" Style="{StaticResource PrimaryButton}" Click="OnSave"
+                            HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                </StackPanel>
+            </Border>
+            <Button Content="Закрыть" Click="OnClose" HorizontalAlignment="Right" Margin="0"/>
+        </StackPanel>
+
+        <DataGrid x:Name="DriversGrid" SelectionChanged="OnSelected">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Никнейм" Binding="{Binding Nickname}" Width="*"/>
+                <DataGridTextColumn Header="Ранг" Binding="{Binding Rank}" Width="170"/>
+                <DataGridTextColumn Header="Допуски" Binding="{Binding Permits}" Width="200"/>
+                <DataGridTextColumn Header="Роль" Binding="{Binding Role}" Width="130"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

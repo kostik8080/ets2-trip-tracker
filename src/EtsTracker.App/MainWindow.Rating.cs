@@ -29,6 +29,7 @@ public partial class MainWindow
         {
             await SyncAsync();
             await LoadLeaderboardAsync();
+            await UpdatePendingCountAsync();
         };
         _syncTimer.Start();
         _liveTimer.Tick += async (_, _) => await LoadLiveAsync();
@@ -83,6 +84,7 @@ public partial class MainWindow
         await SyncAsync();
         await LoadLeaderboardAsync();
         await LoadLiveAsync();
+        await UpdatePendingCountAsync();
     }
 
     // ─────────────────────────────── Вход ───────────────────────────────
@@ -292,6 +294,42 @@ public partial class MainWindow
         }
     }
 
+    private void OnMyServerTrips(object sender, RoutedEventArgs e)
+    {
+        if (Account is not { } account) return;
+        new ServerTripsWindow(new ServerClient(_s.Server.Url, account.Token), review: false) { Owner = this }.ShowDialog();
+    }
+
+    private async void OnReviewTrips(object sender, RoutedEventArgs e)
+    {
+        if (Account is not { IsAdmin: true } account) return;
+        var window = new ServerTripsWindow(new ServerClient(_s.Server.Url, account.Token), review: true) { Owner = this };
+        window.ShowDialog();
+        await UpdatePendingCountAsync();
+        if (window.Changed) await LoadLeaderboardAsync();
+    }
+
+    private async void OnServerDrivers(object sender, RoutedEventArgs e)
+    {
+        if (Account is not { IsAdmin: true } account) return;
+        var window = new ServerDriversWindow(new ServerClient(_s.Server.Url, account.Token)) { Owner = this };
+        window.ShowDialog();
+        if (!window.Changed) return;
+        await ShowRatingAsync(); // могла поменяться и своя роль
+    }
+
+    /// <summary>Сколько рейсов ждут проверки — на кнопке у администратора.</summary>
+    private async Task UpdatePendingCountAsync()
+    {
+        if (Account is not { IsAdmin: true } account) return;
+        try
+        {
+            var pending = await new ServerClient(_s.Server.Url, account.Token).GetTripsAsync(TripApproval.Pending);
+            ReviewTripsButton.Content = pending.Count > 0 ? $"Проверка рейсов ({pending.Count})" : "Проверка рейсов";
+        }
+        catch (ServerException) { }
+    }
+
     private async void OnRatingDriverSelected(object sender, SelectionChangedEventArgs e)
     {
         if (RatingGrid.SelectedItem is not RatingRow row || Account is not { } account) return;
@@ -408,6 +446,7 @@ public partial class MainWindow
     {
         await SyncAsync();
         await LoadLeaderboardAsync();
+        await UpdatePendingCountAsync();
     }
 
     private void OnOpenRatingPage(object sender, RoutedEventArgs e)

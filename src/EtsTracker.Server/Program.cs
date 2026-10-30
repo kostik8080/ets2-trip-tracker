@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.RateLimiting;
 using EtsTracker;
 using EtsTracker.Server;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -46,6 +47,17 @@ builder.Services.AddRateLimiter(o =>
 });
 
 var app = builder.Build();
+
+// За обратным прокси (Caddy с HTTPS) настоящий адрес клиента приходит в заголовке,
+// иначе ограничение попыток входа считалось бы одно на всех. Сервер в этом режиме закрыт снаружи
+if (Environment.GetEnvironmentVariable("TRUST_PROXY") == "true")
+{
+    var forwarded = new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto };
+    forwarded.KnownNetworks.Clear();
+    forwarded.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwarded);
+}
+
 app.UseRateLimiter();
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -138,11 +150,76 @@ app.MapPost("/api/trips", async (HttpContext ctx, List<TripUpload> uploads) =>
         int earlier = await db.CountDeliveredBetweenAsync(driver.Id, dayStart, trip.FinishedAt);
         pay.Apply(trip, driver, earlier);
 
-        if (await db.SaveTripAsync(trip)) accepted++;
+        // Рейсы администратора принимаются сразу: не проверять же ему самого себя
+        var approval = company.RequireTripApproval && !driver.IsAdmin ? TripApproval.Pending : TripApproval.Approved;
+        if (await db.SaveTripAsync(trip, approval)) accepted++;
         else duplicates++;
         saved.Add(upload.ClientId);
     }
     return Results.Ok(new TripUploadResult(accepted, duplicates, saved, rejected));
+});
+
+// Свои рейсы: водитель видит, что принято, а что отклонено и почему
+app.MapGet("/api/trips/mine", async (HttpContext ctx) =>
+    await CurrentDriver(ctx) is { } d ? Results.Ok(await db.GetServerTripsAsync(null, d.Id, 100)) : NotLoggedIn());
+
+app.MapGet("/api/trips", async (HttpContext ctx, TripApproval? approval) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Проверка рейсов — для администратора.", StatusCodes.Status403Forbidden);
+    return Results.Ok(await db.GetServerTripsAsync(approval ?? TripApproval.Pending, null, 200));
+});
+
+app.MapPost("/api/trips/{id:long}/review", async (HttpContext ctx, long id, TripReview review) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Проверка рейсов — для администратора.", StatusCodes.Status403Forbidden);
+
+    var note = review.Note?.Trim() ?? "";
+    if (note.Length > 300) return Error("Комментарий — до 300 символов.");
+    if (!review.Approve && note.Length == 0) return Error("Напишите, почему рейс отклонён.");
+
+    var trip = await db.GetTripForPayAsync(id);
+    if (trip == null) return Error("Рейс не найден.", StatusCodes.Status404NotFound);
+    var driver = (await db.GetDriversAsync()).First(d => d.Id == trip.DriverId);
+
+    trip.Kind = review.Kind ?? trip.Kind;
+    trip.CargoClass = review.CargoClass ?? trip.CargoClass;
+
+    // Зарплату пересчитываем всегда: мог поменяться класс груза или ранг водителя
+    var localDay = TimeZoneInfo.ConvertTime(new DateTimeOffset(trip.FinishedAt), timeZone);
+    var dayStart = new DateTimeOffset(localDay.Date, localDay.Offset).UtcDateTime;
+    pay.Apply(trip, driver, await db.CountDeliveredBetweenAsync(driver.Id, dayStart, trip.FinishedAt));
+
+    await db.SaveReviewAsync(trip, review.Approve ? TripApproval.Approved : TripApproval.Rejected, note, admin.Id);
+    return Results.NoContent();
+});
+
+// ───────────────────────────── Водители ────────────────────────────
+
+app.MapGet("/api/drivers", async (HttpContext ctx) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Только для администратора.", StatusCodes.Status403Forbidden);
+    return Results.Ok((await db.GetDriversAsync()).Select(d => new ServerDriverInfo(
+        d.Id, d.Nickname, d.Rank, Names.Of(d.Rank), d.PermitAdr, d.PermitHeavy, d.PermitArticulated, d.IsAdmin)));
+});
+
+app.MapPut("/api/drivers/{id:long}", async (HttpContext ctx, long id, DriverUpdate update) =>
+{
+    var admin = await CurrentDriver(ctx);
+    if (admin == null) return NotLoggedIn();
+    if (!admin.IsAdmin) return Error("Только для администратора.", StatusCodes.Status403Forbidden);
+
+    var drivers = await db.GetDriversAsync();
+    if (drivers.All(d => d.Id != id)) return Error("Водитель не найден.", StatusCodes.Status404NotFound);
+    if (!update.IsAdmin && drivers.All(d => d.Id == id || !d.IsAdmin))
+        return Error("Это единственный администратор. Сначала назначьте другого.");
+    await db.UpdateDriverAsync(id, update);
+    return Results.NoContent();
 });
 
 // ───────────────────────────── Премии ─────────────────────────────

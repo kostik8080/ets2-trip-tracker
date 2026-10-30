@@ -1,0 +1,81 @@
+# Настоящий сервер в интернете: HTTPS, закрытая база, ежедневные копии.
+# Инструкция — в DEPLOY.md. Настройки — в файле .env рядом (образец: .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ets
+      POSTGRES_USER: ets
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Задайте POSTGRES_PASSWORD в файле .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ets -d ets"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_CONNECTION: Host=db;Database=ets;Username=ets;Password=${POSTGRES_PASSWORD}
+      COMPANY_TZ: ${COMPANY_TZ:-Europe/Moscow}
+      TRUST_PROXY: "true"
+    volumes:
+      - server-data:/data
+    # Портов наружу нет: доступ только через Caddy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      DOMAIN: ${DOMAIN:?Задайте DOMAIN в файле .env}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Раз в сутки — копия базы в папку backups, хранится 14 дней
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -o pipefail
+        while true; do
+          name=/backups/ets-$$(date +%F).sql.gz
+          if pg_dump -h db -U ets ets | gzip > "$$name.tmp"; then
+            mv "$$name.tmp" "$$name"
+            echo "Копия готова: $$name"
+          else
+            rm -f "$$name.tmp"
+            echo "ОШИБКА: копия базы не создана"
+          fi
+          find /backups -name '*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+
+volumes:
+  db-data:
+  server-data:
+  caddy-data:
+  caddy-config:
