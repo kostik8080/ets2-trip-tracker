@@ -7,14 +7,16 @@ namespace EtsTracker.App;
 public partial class ServerDriversWindow : Window
 {
     private readonly ServerClient _client;
+    private readonly Action<Window> _openLocalProfiles;
 
     /// <summary>Были ли изменения: рейтинг нужно перечитать.</summary>
     public bool Changed { get; private set; }
 
-    public ServerDriversWindow(ServerClient client)
+    public ServerDriversWindow(ServerClient client, Action<Window> openLocalProfiles)
     {
         InitializeComponent();
         _client = client;
+        _openLocalProfiles = openLocalProfiles;
         RankBox.ItemsSource = Choices.Ranks;
         Loaded += async (_, _) => await LoadAsync(null);
     }
@@ -69,6 +71,8 @@ public partial class ServerDriversWindow : Window
         ErrorText.Text = text;
         ErrorText.Visibility = Visibility.Visible;
     }
+
+    private void OnLocalProfiles(object sender, RoutedEventArgs e) => _openLocalProfiles(this);
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 

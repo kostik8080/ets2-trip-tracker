@@ -1,11 +1,11 @@
 <Window x:Class="EtsTracker.App.ServerDriversWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Водители на сервере" Width="820" Height="560"
+        Title="Водители компании" Width="820" Height="560"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner">
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="Водители на сервере" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="Водители компании" FontSize="18" FontWeight="SemiBold"/>
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
                        Text="Новый ранг и допуски действуют на следующие рейсы и рейсы, которые ещё ждут проверки. Уже принятые не пересчитываются."/>
         </StackPanel>
@@ -27,7 +27,10 @@
                             HorizontalAlignment="Left" Margin="0,10,0,0"/>
                 </StackPanel>
             </Border>
-            <Button Content="Закрыть" Click="OnClose" HorizontalAlignment="Right" Margin="0"/>
+            <Grid>
+                <Button Content="Профили на этом компьютере и PIN…" Click="OnLocalProfiles" HorizontalAlignment="Left" Margin="0"/>
+                <Button Content="Закрыть" Click="OnClose" HorizontalAlignment="Right" Margin="0"/>
+            </Grid>
         </StackPanel>
 
         <DataGrid x:Name="DriversGrid" SelectionChanged="OnSelected">

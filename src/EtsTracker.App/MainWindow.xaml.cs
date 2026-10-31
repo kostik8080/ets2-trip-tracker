@@ -105,7 +105,14 @@ public partial class MainWindow : Window
     private void OnManageDrivers(object sender, RoutedEventArgs e)
     {
         if (!_driver.IsAdmin) return;
-        var window = new DriversWindow(_s, _driver.Id) { Owner = this };
+        // После входа на сервер главный список — водители компании
+        if (Account is { IsAdmin: true }) OnServerDrivers(sender, e);
+        else OpenLocalProfiles(this);
+    }
+
+    private void OpenLocalProfiles(Window owner)
+    {
+        var window = new DriversWindow(_s, _driver.Id) { Owner = owner };
         window.ShowDialog();
         if (!window.Changed) return;
         // Текущего водителя могли изменить (ранг, роль) — перечитываем его из базы

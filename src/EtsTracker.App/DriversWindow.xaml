@@ -1,13 +1,13 @@
 <Window x:Class="EtsTracker.App.DriversWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Водители компании" Width="930" Height="520"
+        Title="Профили на этом компьютере" Width="930" Height="520"
         Style="{StaticResource AppWindow}" WindowStartupLocation="CenterOwner">
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock Text="Водители компании" FontSize="18" FontWeight="SemiBold"/>
+            <TextBlock Text="Профили на этом компьютере" FontSize="18" FontWeight="SemiBold"/>
             <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
-                       Text="Администратор меняет ранги, допуски и роли. Дважды щёлкните по водителю, чтобы изменить его."/>
+                       Text="Здесь только те, кто играет на этом компьютере. После входа на сервер ранг, допуски и роль водителя приходят с сервера. Дважды щёлкните по водителю, чтобы изменить его."/>
         </StackPanel>
 
         <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">

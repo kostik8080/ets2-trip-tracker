@@ -334,7 +334,7 @@ public partial class MainWindow
     private async void OnServerDrivers(object sender, RoutedEventArgs e)
     {
         if (Account is not { IsAdmin: true } account) return;
-        var window = new ServerDriversWindow(new ServerClient(_s.Server.Url, account.Token)) { Owner = this };
+        var window = new ServerDriversWindow(new ServerClient(_s.Server.Url, account.Token), OpenLocalProfiles) { Owner = this };
         window.ShowDialog();
         if (!window.Changed) return;
         await ShowRatingAsync(); // могла поменяться и своя роль
