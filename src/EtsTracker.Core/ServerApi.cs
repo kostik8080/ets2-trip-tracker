@@ -25,7 +25,9 @@ public sealed record LoginRequest(string Nickname, string Password);
 
 public sealed record AuthResponse(string Token, ServerDriver Driver);
 
-public sealed record ServerDriver(long Id, string Nickname, DriverRank Rank, bool IsAdmin);
+/// <summary>Допуски null: их не прислал сервер старой версии.</summary>
+public sealed record ServerDriver(long Id, string Nickname, DriverRank Rank, bool IsAdmin,
+    bool? PermitAdr = null, bool? PermitHeavy = null, bool? PermitArticulated = null);
 
 public sealed record InviteRequest(DriverRank Rank);
 

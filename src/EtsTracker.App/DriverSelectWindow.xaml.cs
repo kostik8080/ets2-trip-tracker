@@ -32,9 +32,7 @@ public partial class DriverSelectWindow : Window
 
     private void OnNew(object sender, RoutedEventArgs e)
     {
-        // Самый первый водитель регистрируется сам; остальных назначает администратор
-        bool first = _services.Repo.GetDrivers().Count == 0;
-        var edit = new DriverEditWindow(_services, null, canManage: first) { Owner = this };
+        var edit = new DriverEditWindow(_services, null, canManage: false) { Owner = this };
         if (edit.ShowDialog() == true)
             Load(edit.Driver.Id);
     }

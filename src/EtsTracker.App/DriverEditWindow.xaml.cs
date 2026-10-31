@@ -4,8 +4,8 @@ namespace EtsTracker.App;
 
 /// <summary>
 /// Регистрация нового водителя или правка профиля.
-/// Ранг, допуски и роль администратора меняет только администратор (canManage);
-/// самый первый водитель регистрируется сам и становится администратором.
+/// Ранг, допуски и роль администратора меняет только администратор (canManage).
+/// Водитель получает их с сервера компании после входа на вкладке «Рейтинг».
 /// </summary>
 public partial class DriverEditWindow : Window
 {
@@ -35,17 +35,12 @@ public partial class DriverEditWindow : Window
         AdrBox.IsChecked = Driver.PermitAdr;
         HeavyBox.IsChecked = Driver.PermitHeavy;
         ArticulatedBox.IsChecked = Driver.PermitArticulated;
-        AdminBox.IsChecked = Driver.IsAdmin || (_isNew && drivers.Count == 0);
+        AdminBox.IsChecked = Driver.IsAdmin;
 
         RankBox.IsEnabled = AdrBox.IsEnabled = HeavyBox.IsEnabled = ArticulatedBox.IsEnabled = AdminBox.IsEnabled = canManage;
-        if (_isNew && drivers.Count == 0)
+        if (!canManage)
         {
-            AdminBox.IsEnabled = false;
-            ManageHint.Text = "Первый водитель становится администратором компании.";
-        }
-        else if (!canManage)
-        {
-            ManageHint.Text = "Ранг, допуски и роль меняет администратор компании.";
+            ManageHint.Text = "Ранг, допуски и роль назначает администратор компании. Они появятся здесь после входа на сервер на вкладке «Рейтинг».";
         }
         ManageHint.Visibility = string.IsNullOrEmpty(ManageHint.Text) ? Visibility.Collapsed : Visibility.Visible;
 

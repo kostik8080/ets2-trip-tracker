@@ -45,6 +45,7 @@ public partial class MainWindow
     private async Task ShowRatingAsync()
     {
         var account = Account;
+        var driver = _driver;
         ServerConnectPanel.Visibility = account == null ? Visibility.Visible : Visibility.Collapsed;
         ServerRatingPanel.Visibility = account == null ? Visibility.Collapsed : Visibility.Visible;
         ServerErrorText.Visibility = Visibility.Collapsed;
@@ -70,6 +71,7 @@ public partial class MainWindow
                 account.Nickname = me.Nickname;
                 _s.SaveServer();
             }
+            ApplyServerProfile(driver, me);
         }
         catch (ServerException ex) when (ex.Unauthorized)
         {
@@ -85,6 +87,25 @@ public partial class MainWindow
         await LoadLeaderboardAsync();
         await LoadLiveAsync();
         await UpdatePendingCountAsync();
+    }
+
+    /// <summary>Роль, ранг и допуски задаёт сервер компании: права в трекере не могут расходиться с ним.</summary>
+    private void ApplyServerProfile(Driver driver, ServerDriver me)
+    {
+        bool adr = me.PermitAdr ?? driver.PermitAdr;
+        bool heavy = me.PermitHeavy ?? driver.PermitHeavy;
+        bool articulated = me.PermitArticulated ?? driver.PermitArticulated;
+        if (driver.IsAdmin == me.IsAdmin && driver.Rank == me.Rank && driver.PermitAdr == adr
+            && driver.PermitHeavy == heavy && driver.PermitArticulated == articulated) return;
+
+        driver.IsAdmin = me.IsAdmin;
+        driver.Rank = me.Rank;
+        driver.PermitAdr = adr;
+        driver.PermitHeavy = heavy;
+        driver.PermitArticulated = articulated;
+        if (!me.IsAdmin) driver.HasPin = false; // UpdateDriver стирает PIN у водителя без роли
+        _s.Repo.UpdateDriver(driver);
+        if (driver == _driver) ShowDriver();
     }
 
     // ─────────────────────────────── Вход ───────────────────────────────
@@ -121,6 +142,7 @@ public partial class MainWindow
                 Nickname = auth.Driver.Nickname, Token = auth.Token, IsAdmin = auth.Driver.IsAdmin,
             };
             _s.SaveServer();
+            ApplyServerProfile(_driver, auth.Driver);
             AddNotice($"🌐 Вход на сервер выполнен: {auth.Driver.Nickname}");
             AskAboutOldTrips();
             await ShowRatingAsync();

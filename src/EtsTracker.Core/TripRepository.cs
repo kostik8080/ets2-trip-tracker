@@ -80,7 +80,6 @@ public sealed class TripRepository
             """);
         AddColumnIfMissing(c, "drivers", "is_admin", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(c, "drivers", "pin_hash", "TEXT NOT NULL DEFAULT ''");
-        EnsureAdmin(c);
     }
 
     private static void BackfillClientIds(SqliteConnection c)
@@ -101,14 +100,6 @@ public sealed class TripRepository
             cmd.ExecuteNonQuery();
         }
     }
-
-    /// <summary>Если администратора нет, им становится первый зарегистрированный водитель.</summary>
-    private static void EnsureAdmin(SqliteConnection c)
-        => Exec(c, """
-            UPDATE drivers SET is_admin = 1
-            WHERE id = (SELECT MIN(id) FROM drivers)
-              AND NOT EXISTS (SELECT 1 FROM drivers WHERE is_admin = 1);
-            """);
 
     // ───────────────────────────── Водители ─────────────────────────────
 
@@ -178,12 +169,6 @@ public sealed class TripRepository
         adopt.Parameters.AddWithValue("$id", d.Id);
         adopt.ExecuteNonQuery();
         tx.Commit();
-
-        EnsureAdmin(c);
-        using var check = c.CreateCommand();
-        check.CommandText = "SELECT is_admin FROM drivers WHERE id = $id;";
-        check.Parameters.AddWithValue("$id", d.Id);
-        d.IsAdmin = (long)check.ExecuteScalar()! == 1;
     }
 
     /// <summary>Задаёт PIN водителя; null — сбрасывает (при следующем входе водитель задаст новый).</summary>

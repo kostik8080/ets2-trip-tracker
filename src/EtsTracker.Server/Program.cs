@@ -71,7 +71,7 @@ static string? BearerToken(HttpContext ctx)
 async Task<Driver?> CurrentDriver(HttpContext ctx)
     => BearerToken(ctx) is { Length: > 0 } token ? await db.GetDriverByTokenAsync(token) : null;
 
-static ServerDriver ToApi(Driver d) => new(d.Id, d.Nickname, d.Rank, d.IsAdmin);
+static ServerDriver ToApi(Driver d) => new(d.Id, d.Nickname, d.Rank, d.IsAdmin, d.PermitAdr, d.PermitHeavy, d.PermitArticulated);
 
 static IResult Error(string text, int status = StatusCodes.Status400BadRequest)
     => Results.Json(new ApiError(text), statusCode: status);
