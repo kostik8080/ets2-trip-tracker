@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -184,31 +185,41 @@ public partial class MainWindow : Window
             PluginState.Installed => ("✔ Плагин телеметрии установлен", "GoodBrush", null),
             PluginState.NotInstalled => ("Плагин телеметрии не установлен — без него трекер не видит игру.", "BadBrush", "Установить плагин"),
             PluginState.Outdated => ("В игре другая версия плагина телеметрии.", "AccentBrush", "Обновить плагин"),
-            _ => ("Папка Euro Truck Simulator 2 не найдена в Steam.", "MutedBrush", "Указать папку игры…"),
+            _ => ("Игра не найдена в Steam. Выберите файл eurotrucks2.exe вручную.", "MutedBrush", null),
         };
         PluginText.Text = text;
         PluginText.Foreground = (Brush)FindResource(brush);
-        PluginText.ToolTip = _gameDir;
+        GamePathText.Text = _gameDir == null ? "" : $"Игра: {_gameDir}";
+        GamePathText.Visibility = _gameDir == null ? Visibility.Collapsed : Visibility.Visible;
         PluginButton.Content = button;
         PluginButton.Visibility = button == null ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    private void OnChooseGameFile(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Файл игры eurotrucks2.exe",
+            Filter = "Euro Truck Simulator 2 (eurotrucks2.exe)|eurotrucks2.exe|Программы (*.exe)|*.exe",
+        };
+        if (_gameDir != null) dialog.InitialDirectory = Path.GetDirectoryName(Path.Combine(_gameDir, PluginInstaller.GameExe));
+        if (dialog.ShowDialog(this) != true) return;
+
+        var dir = PluginInstaller.GameDirFromExe(dialog.FileName);
+        if (dir == null)
+        {
+            MessageBox.Show(this, @"Это не файл игры. Нужен eurotrucks2.exe из папки bin\win_x64 внутри папки игры.",
+                "Плагин", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        _s.State.GameDir = dir;
+        _s.State.Save(_s.DataDir);
+        UpdatePlugin();
+    }
+
     private void OnPluginButton(object sender, RoutedEventArgs e)
     {
-        if (_gameDir == null)
-        {
-            var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Папка Euro Truck Simulator 2" };
-            if (dialog.ShowDialog(this) != true) return;
-            if (!PluginInstaller.IsGameDir(dialog.FolderName))
-            {
-                MessageBox.Show(this, @"В этой папке нет игры: не найден bin\win_x64\eurotrucks2.exe." + "\n" +
-                    "Выберите корневую папку «Euro Truck Simulator 2».", "Плагин", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-            _s.State.GameDir = dialog.FolderName;
-            _s.State.Save(_s.DataDir);
-            _gameDir = dialog.FolderName;
-        }
+        if (_gameDir == null) return;
 
         try
         {

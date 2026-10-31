@@ -8,7 +8,8 @@
 1. **Плагин телеметрии** `scs-telemetry.dll` ([RenCloud/scs-sdk-plugin](https://github.com/RenCloud/scs-sdk-plugin))
    встроен в трекер. В окне трекера нажмите **«Установить плагин»** в карточке «Сейчас»:
    трекер найдёт игру в библиотеках Steam и положит плагин в
-   `Euro Truck Simulator 2\bin\win_x64\plugins\`. Если игра не в Steam — укажите её папку.
+   `Euro Truck Simulator 2\bin\win_x64\plugins\`. Если игра не в Steam или найдена не та копия, нажмите
+   **«Выбрать файл игры…»** и укажите `bin\win_x64\eurotrucks2.exe` в папке игры.
    При запуске игра покажет окно о том, что SDK активен: нажмите «ОК».
 2. **.NET 8 SDK**: https://dotnet.microsoft.com/download
 

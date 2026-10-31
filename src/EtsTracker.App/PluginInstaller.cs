@@ -20,7 +20,15 @@ public static class PluginInstaller
 {
     private const string FileName = "scs-telemetry.dll";
     private const string GameFolder = "Euro Truck Simulator 2";
-    private static readonly string GameExe = Path.Combine("bin", "win_x64", "eurotrucks2.exe");
+    public static readonly string GameExe = Path.Combine("bin", "win_x64", "eurotrucks2.exe");
+
+    /// <summary>Папка игры по выбранному файлу eurotrucks2.exe; null, если это не он.</summary>
+    public static string? GameDirFromExe(string exe)
+    {
+        if (!string.Equals(Path.GetFileName(exe), Path.GetFileName(GameExe), StringComparison.OrdinalIgnoreCase)) return null;
+        var dir = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetFullPath(exe))));
+        return IsGameDir(dir) ? dir : null;
+    }
 
     /// <summary>Папка игры, указанная вручную (если игра не в Steam). Хранится в data/app.json.</summary>
     public static string? FindGame(string? manualDir)
