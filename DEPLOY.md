@@ -108,6 +108,57 @@ docker compose -f docker-compose.prod.yml logs server | grep администр�
 cd /opt/ets && docker compose -f docker-compose.prod.yml exec -T db psql -U ets -d ets -c "UPDATE drivers SET is_admin = true WHERE nickname = 'ник'"
 ```
 
+### Если водитель ушёл из компании
+
+Кнопки удаления в трекере нет: команды ниже выполняются на сервере. Есть два варианта.
+
+| | Закрыть доступ | Удалить полностью |
+|---|---|---|
+| Вход на сервер | закрыт | закрыт |
+| Строка в рейтинге | остаётся | исчезает |
+| Его рейсы и премии | остаются | **удаляются** |
+| Общий счёт и итоги компании | не меняются | **уменьшаются** |
+| Отмена | снова задать пароль в базе нельзя, нужен новый аккаунт | только восстановлением всей базы из копии |
+
+Обычно достаточно закрыть доступ: рейсы водителя уже заработали деньги компании, и итоги останутся
+верными. Удалять полностью стоит тестовых водителей и тех, чьи рейсы не должны учитываться.
+
+В командах подставьте ник вместо `ник`, написав его точно так, как в рейтинге. Администратора они не
+затронут: сначала снимите с него роль в окне «Водители», а если администратор один, назначьте другого.
+
+1. Посмотрите, что есть у водителя:
+
+   ```bash
+   cd /opt/ets && docker compose -f docker-compose.prod.yml exec -T db psql -U ets -d ets -c "SELECT d.nickname, d.is_admin, (SELECT count(*) FROM trips t WHERE t.driver_id = d.id) AS trips, (SELECT count(*) FROM bonuses b WHERE b.driver_id = d.id) AS bonuses FROM drivers d WHERE d.nickname = 'ник'"
+   ```
+
+2. Сделайте копию базы:
+
+   ```bash
+   cd /opt/ets && docker compose -f docker-compose.prod.yml exec -T db pg_dump -U ets ets | gzip > backups/before-delete-$(date +%F).sql.gz
+   ```
+
+3. Выполните **одну** из двух команд.
+
+   Закрыть доступ, сохранив рейсы и премии. Ответ должен закончиться на `UPDATE 1`:
+
+   ```bash
+   cd /opt/ets && docker compose -f docker-compose.prod.yml exec -T db psql -U ets -d ets -c "DELETE FROM tokens WHERE driver_id = (SELECT id FROM drivers WHERE nickname = 'ник' AND NOT is_admin); UPDATE drivers SET password_hash = '' WHERE nickname = 'ник' AND NOT is_admin"
+   ```
+
+   Удалить полностью, вместе с рейсами и премиями. Ответ должен быть `DELETE 1`:
+
+   ```bash
+   cd /opt/ets && docker compose -f docker-compose.prod.yml exec -T db psql -U ets -d ets -c "DELETE FROM drivers WHERE nickname = 'ник' AND NOT is_admin"
+   ```
+
+Если в ответе `UPDATE 0` или `DELETE 0`, ничего не изменилось: проверьте ник и роль.
+
+После любого варианта трекер водителя выйдет из аккаунта при следующем обращении к серверу, а войти снова
+не получится. Рейсы в самом трекере на его компьютере останутся, но на сервер больше не попадут. Рейсы,
+ожидавшие проверки, при закрытии доступа останутся в «Проверке рейсов». Если водитель вернётся, создайте
+ему новый код приглашения: после закрытия доступа нужен другой ник, после полного удаления подойдёт и старый.
+
 ## Обновление
 
 С вашего компьютера, из папки проекта:
